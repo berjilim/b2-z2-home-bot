@@ -81,6 +81,11 @@ export function createTelegramBot({
             const text = message?.text;
             if (!userId || !text) continue;
 
+            // TEMP DIAGNOSTIC: chat.id should equal from.id for DMs — if they
+            // differ, replies (sent to from.id) will fail with "chat not found"
+            // because the bot has no private conversation with that user id.
+            logger.info(`[telegram-bot] DEBUG message from.id=${message?.from?.id} chat.id=${message?.chat?.id} chat.type=${message?.chat?.type}`);
+
             const name = allowedUsers[userId];
             if (!name) {
                 logger.error(`[telegram-bot] ignoring message from unauthorized user ${userId}`);
