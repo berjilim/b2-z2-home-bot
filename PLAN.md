@@ -19,4 +19,24 @@
    `repository.json`, templated from Sam's bot.
 8. **Cutover** — run alongside Mac-hosted BeZa during burn-in, then retire it.
 
-Currently on: **step 1**.
+Currently on: **step 2**.
+
+## Step 1 findings (spike — DONE, round trip confirmed)
+
+- Auth: subscription tokens (`claude setup-token`) go in env var
+  **`CLAUDE_CODE_OAUTH_TOKEN`**, NOT `ANTHROPIC_API_KEY` (that's reserved for
+  metered Console billing — setting both causes `authentication_failed`).
+- Real session modes returned by `session/new`: `auto`, `default`,
+  `acceptEdits`, `plan`, `dontAsk`, `bypassPermissions`. For unattended
+  trigger-driven runs, `dontAsk` or `bypassPermissions` are the candidates
+  (no Telegram approval round-trip for routine HA actions).
+- Real model options: `default` (Opus 4.8), `sonnet` (4.6), `sonnet[1m]`,
+  `haiku`, plus an `effort` dial (`low`→`max`). Use `haiku` or
+  `sonnet`+`effort:low` for a lightweight always-on guardian — not the
+  default Opus.
+- Cost is visible per-turn via `session/update` → `usage_update.cost.amount`
+  (USD) — wire this into the guardian's own notify/wake cost tracking.
+- IMPORTANT: must set `cwd` and `CLAUDE_CONFIG_DIR` to a project-scoped dir,
+  NOT inherit the operator's `~/.claude` — otherwise it picks up unrelated
+  slash commands/memory (confirmed: spike auto-loaded Tron's commands).
+- Spike harness lives at `spike/acp-roundtrip.mjs`, run via `npm run spike`.
