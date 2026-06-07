@@ -31,11 +31,18 @@ WebUI/ingress, no RBAC, no group chat — single Node process). The
 internal proxy — no external HA exposure needed once running as the
 add-on). `main.mjs` needs **zero changes** to run this way.
 
+**Pushed to GitHub (2026-06-08):** public repo at
+`github.com/berjilim/b2-z2-home-bot` (Bernard's own account — name
+landed as `b2-z2-home-bot`, not `beza-home-bot`; all repo URLs in
+`config.yaml`/`repository.json`/`Dockerfile` updated to match).
+This is now addable to HA as a custom add-on repository:
+Settings → Add-ons → Add-on Store → ⋮ → Repositories →
+`https://github.com/berjilim/b2-z2-home-bot`.
+
 Remaining for step 7: a real build/install test on an actual HA
 Supervisor host (this scaffold is untested against a live Supervisor —
 only validated for syntax: YAML/JSON parse, bash `-n` on the run/finish
-scripts). Placeholder repo URLs (`github.com/bernardlim/beza-home-bot`)
-need updating once the repo has a real remote.
+scripts).
 
 Before full cutover we still need a real production entrypoint
 (currently each piece — telegram-bot, listener, wake-glue — is only
