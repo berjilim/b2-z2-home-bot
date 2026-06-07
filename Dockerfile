@@ -28,5 +28,5 @@ LABEL \
     io.hass.version="${BUILD_VERSION}" \
     org.opencontainers.image.title="BZ-V2 Home Guardian" \
     org.opencontainers.image.description="Standalone Claude+ACP guardian, replaces Mac-hosted BeZa" \
-    org.opencontainers.image.source="https://github.com/bernardlim/beza-home-bot" \
+    org.opencontainers.image.source="https://github.com/berjilim/b2-z2-home-bot" \
     org.opencontainers.image.licenses="MIT"
