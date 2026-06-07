@@ -87,10 +87,29 @@ work below.
   HA MCP wiring is still TODO (tracked separately, not blocking step 7
   packaging). Verified: `node --check` passes, full `npm test` suite
   passes, and a dry run correctly fails fast on missing `HA_URL`/`HA_TOKEN`.
-- **Still needed before this can run live end-to-end:** a Home Assistant
-  long-lived access token + base URL (`HA_URL`/`HA_TOKEN` in `.env`) for
-  the listener's WebSocket connection — placeholders added to `.env`,
-  values pending from Bernard.
+- **Full live-stack run + both action paths verified (2026-06-08):**
+  Bernard supplied `HA_URL=http://homeassistant.local:8123` + a long-lived
+  HA token; `npm start` ran the entire process live — ACP runner, HA
+  WebSocket listener (connected, authenticated, subscribed to
+  `state_changed`), and Telegram bot, all together for the first time.
+  Armed two throwaway test orders against `light.entrance_dining_right`
+  (now removed — `active.json` back to `[]`):
+  - **`notify` path** (zero-token): `turns_on` → listener matched →
+    direct Telegram send → `[notify] delivered — 0 tokens used`.
+    Bernard confirmed the message landed.
+  - **`wake_agent` path**: `turns_off` → listener matched → fresh scoped
+    ACP turn spun up with trigger context injected → Claude reasoned
+    (903 output tokens, `stopReason=end_turn`) → reply relayed to
+    Telegram. Bernard confirmed the message landed and content was sane.
+  - Both paths fired correctly *while* the conversational bot was also
+    live — proves the shared-runner design holds under concurrent use.
+  - **Minor cosmetic issue noted:** ACP binary logs a noisy stderr
+    warning (`"Method not found": session/cancel`) on session close —
+    already swallowed by `.catch(() => {})` in `agent-runner.mjs:119`,
+    doesn't affect correctness, but worth skipping the call outright
+    later since this ACP version (`v0.42.0`) doesn't support
+    `session/cancel`.
+  - **Step 7 core wiring is now fully proven live, end to end.**
 
 ## Step 4 (DONE)
 - `src/agent-runner.mjs` — `ClaudeAgentRunner`: owns the spawned ACP
