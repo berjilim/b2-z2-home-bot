@@ -19,7 +19,23 @@
    `repository.json`, templated from Sam's bot.
 8. **Cutover** — run alongside Mac-hosted BeZa during burn-in, then retire it.
 
-Currently on: **step 2**.
+Currently on: **step 4**.
+
+## Step 3 (DONE)
+- `src/triggers.mjs` — pure trigger-evaluation logic, extracted & tested
+- `src/listener.mjs` — `HAListener`: HA WebSocket connection, reconnect/
+  heartbeat, hot-reloads `active.json` via `OrdersStore`, dispatches to
+  direct Telegram notify (0 tokens) or an injected `onWake(order, ctx)`
+  callback. **Decoupled from OpenClaw on purpose** — the original posted
+  to an OpenClaw hooks endpoint; here, waking the agent is the caller's
+  job (wired up properly in step 4's ACP glue).
+- `src/telegram.mjs` — minimal Bot API sender, no SDK dependency
+- All three test suites passing (`npm test`)
+
+## Step 2 (DONE)
+- `standing-orders/SCHEMA.md`, `prompts/guardian-system-prompt.md`,
+  `memory/{home-entities,home-deductions}.md` (carried over from BeZa —
+  same house), `src/orders.mjs` (OrdersStore data layer, tested).
 
 ## Step 1 findings (spike — DONE, round trip confirmed)
 
