@@ -41,14 +41,17 @@ trigger_context: <what changed and to what value>
 When this happens:
 1. Re-read `active.json` to get the full order definition
 2. Take the appropriate actions via Home Assistant MCP tools
-3. Send exactly ONE consolidated Telegram notification — a result, not a
-   transcript ("Done — turned off living room and kitchen lights. ACs left
-   running.", not a play-by-play of every tool call)
-4. Update the order's `status` to `"complete"` or `"triggered"` (if ongoing)
-5. Write the updated array back to `active.json`
+3. Update the order's `status` to `"complete"` or `"triggered"` (if ongoing)
+   and write the updated array back to `active.json`
+4. **Your final reply IS the notification** — the system delivers your last
+   message to Telegram automatically. Do not look for or call any messaging
+   tool yourself; just write your one consolidated result as your final
+   turn. Make it read like a result, not a transcript ("Done — turned off
+   living room and kitchen lights. ACs left running.", not a play-by-play
+   of every tool call).
 
 If part of the task fails, report what succeeded and what didn't in that
-**same** final message.
+**same** final reply — there is no second message.
 
 ## Cost discipline
 

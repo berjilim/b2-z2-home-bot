@@ -19,7 +19,27 @@
    `repository.json`, templated from Sam's bot.
 8. **Cutover** — run alongside Mac-hosted BeZa during burn-in, then retire it.
 
-Currently on: **step 4**.
+Currently on: **step 5 / 6** (memory files already seeded in step 2;
+remaining: Telegram conversational transport for taking new orders).
+
+## Step 4 (DONE)
+- `src/agent-runner.mjs` — `ClaudeAgentRunner`: owns the spawned ACP
+  subprocess, JSON-RPC/NDJSON plumbing, and one high-level op `runTurn()`
+  that creates a fresh session, sets its mode, sends one prompt, captures
+  the streamed final assistant text + usage, then lets the session end.
+  Auto-approves `session/request_permission` (no human in the loop during
+  unattended wakes — that's what `bypassPermissions`/`dontAsk` mode is for).
+  **Verified against the live binary** via `npm run runner-check`.
+- `src/wake-glue.mjs` — `createWakeHandler()`: the actual "wake → inject →
+  run → capture" glue. Assembles the prompt (system prompt + all memory/*.md
+  + order + trigger context), runs one scoped turn via the runner, and
+  relays the agent's final reply to Telegram **as the single notification**
+  (updated the system prompt's contract accordingly — the agent's last
+  message IS the notification; it doesn't call a messaging tool itself).
+  Falls back to a generic "something happened, worth checking" message if
+  the agent produces an empty reply (never silent on failure).
+- `src/wake-glue.test.mjs` — tests prompt assembly and notify-relay against
+  a fake runner; passing.
 
 ## Step 3 (DONE)
 - `src/triggers.mjs` — pure trigger-evaluation logic, extracted & tested
