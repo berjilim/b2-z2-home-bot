@@ -19,11 +19,23 @@
    `repository.json`, templated from Sam's bot.
 8. **Cutover** — run alongside Mac-hosted BeZa during burn-in, then retire it.
 
-Currently on: **step 7** — step 6 is DONE and live-verified (2026-06-08):
-real `@b2z2_home_bot` bot token + Bernard's Telegram user ID wired in,
-`spike/telegram-bot-check.mjs` ran end-to-end against the real Bot API
-and ACP runner, Bernard DM'd the bot and confirmed replies look correct.
-Single-user (no Zane yet) — `allowedUsers` can grow later.
+Currently on: **step 7** — packaging scaffold built (2026-06-08):
+`Dockerfile`, `config.yaml`, `repository.json`, and the s6-overlay
+`bz-v2` service are in place, modeled on Sam Thng's
+`ha-copilot-telegram-bot` but trimmed to BZ-V2's lean shape (no
+WebUI/ingress, no RBAC, no group chat — single Node process). The
+`run` script translates Supervisor `options.json` into the env vars
+`src/main.mjs` already expects — `CLAUDE_CODE_OAUTH_TOKEN`,
+`TELEGRAM_BOT_TOKEN`/`TELEGRAM_BERNARD_ID`/`TELEGRAM_ZANE_ID`, and
+`HA_URL=http://supervisor/core` + `HA_TOKEN=$SUPERVISOR_TOKEN` (the
+internal proxy — no external HA exposure needed once running as the
+add-on). `main.mjs` needs **zero changes** to run this way.
+
+Remaining for step 7: a real build/install test on an actual HA
+Supervisor host (this scaffold is untested against a live Supervisor —
+only validated for syntax: YAML/JSON parse, bash `-n` on the run/finish
+scripts). Placeholder repo URLs (`github.com/bernardlim/beza-home-bot`)
+need updating once the repo has a real remote.
 
 Before full cutover we still need a real production entrypoint
 (currently each piece — telegram-bot, listener, wake-glue — is only
