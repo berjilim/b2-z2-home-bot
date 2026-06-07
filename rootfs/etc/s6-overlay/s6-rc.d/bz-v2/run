@@ -17,6 +17,14 @@ export CLAUDE_CODE_OAUTH_TOKEN="$(jq -r '.claude_oauth_token' ${OPTIONS})"
 export TELEGRAM_BOT_TOKEN="$(jq -r '.telegram_bot_token' ${OPTIONS})"
 export TELEGRAM_BERNARD_ID="$(jq -r '.telegram_bernard_id' ${OPTIONS})"
 
+# Diagnostic: confirm which bot identity this token resolves to, and the
+# exact length/shape of the configured values, WITHOUT logging the secrets
+# themselves — helps catch config-save corruption without exposing tokens.
+BOT_IDENTITY="$(curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe" | jq -r '.result.username // .description // "unknown"')"
+echo "[$(date -Iseconds)] DEBUG: telegram_bot_token resolves to bot @${BOT_IDENTITY} (expect b2z2_home_bot)"
+echo "[$(date -Iseconds)] DEBUG: telegram_bot_token length=${#TELEGRAM_BOT_TOKEN} telegram_bernard_id=[${TELEGRAM_BERNARD_ID}] (length=${#TELEGRAM_BERNARD_ID})"
+echo "[$(date -Iseconds)] DEBUG: claude_oauth_token length=${#CLAUDE_CODE_OAUTH_TOKEN} prefix=${CLAUDE_CODE_OAUTH_TOKEN:0:14}"
+
 ZANE_ID="$(jq -r '.telegram_zane_id // empty' ${OPTIONS})"
 if [ -n "${ZANE_ID}" ]; then
     export TELEGRAM_ZANE_ID="${ZANE_ID}"
