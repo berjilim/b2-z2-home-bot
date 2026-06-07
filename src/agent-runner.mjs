@@ -68,29 +68,38 @@ export class ClaudeAgentRunner {
     }
 
     /**
-     * Run one scoped turn in a brand-new session, then let the session end.
+     * Open a new session, scoped to `cwd` (project-scoped — NOT the operator's
+     * ~/.claude) with the given mode and MCP servers. Returns the sessionId;
+     * the caller is responsible for closing it via `closeSession`.
      *
      * @param {object} opts
-     * @param {string} opts.cwd - working directory for the session (project-scoped, NOT ~/.claude)
-     * @param {string} [opts.mode] - session mode: "default" | "plan" | "acceptEdits" | "dontAsk" | "bypassPermissions" | "auto"
+     * @param {string} opts.cwd
+     * @param {string} [opts.mode] - "default" | "plan" | "acceptEdits" | "dontAsk" | "bypassPermissions" | "auto"
      * @param {Array}  [opts.mcpServers] - MCP server configs in ACP session/new format
-     * @param {string} opts.prompt - the full prompt text (system context + trigger context, etc.)
-     * @returns {Promise<{ text: string, stopReason: string, usage: object, sessionId: string }>}
+     * @returns {Promise<string>} sessionId
      */
-    async runTurn({ cwd, mode = "default", mcpServers = [], prompt }) {
+    async openSession({ cwd, mode = "default", mcpServers = [] }) {
         const session = await this.#send("session/new", { cwd, mcpServers });
         const sessionId = session.sessionId;
-
         if (mode !== (session.modes?.currentModeId ?? "default")) {
             await this.#send("session/set_mode", { sessionId, modeId: mode });
         }
+        return sessionId;
+    }
 
-        let text = "";
+    /**
+     * Send one prompt on an existing (possibly already-used) session and
+     * resolve with the agent's full final assistant text for that turn.
+     *
+     * @returns {Promise<{ text: string, stopReason: string, usage: object }>}
+     */
+    async prompt(sessionId, text) {
+        let reply = "";
         const onUpdate = (params) => {
             if (params.sessionId !== sessionId) return;
             const update = params.update;
             if (update?.sessionUpdate === "agent_message_chunk" && update.content?.type === "text") {
-                text += update.content.text;
+                reply += update.content.text;
             }
         };
 
@@ -98,13 +107,37 @@ export class ClaudeAgentRunner {
         try {
             const result = await this.#send("session/prompt", {
                 sessionId,
-                prompt: [{ type: "text", text: prompt }],
+                prompt: [{ type: "text", text }],
             }, 10 * 60 * 1000);
-
-            return { text, stopReason: result.stopReason, usage: result.usage, sessionId };
+            return { text: reply, stopReason: result.stopReason, usage: result.usage };
         } finally {
             this.#notificationHandlers.delete(onUpdate);
-            this.#send("session/cancel", { sessionId }).catch(() => {});
+        }
+    }
+
+    async closeSession(sessionId) {
+        await this.#send("session/cancel", { sessionId }).catch(() => {});
+    }
+
+    /**
+     * Run one scoped turn in a brand-new session, then let the session end.
+     * Convenience wrapper for the wake path — fresh session per call,
+     * matches BeZa's "wake, do one scoped thing, sleep again" pattern.
+     *
+     * @param {object} opts
+     * @param {string} opts.cwd - working directory for the session (project-scoped, NOT ~/.claude)
+     * @param {string} [opts.mode]
+     * @param {Array}  [opts.mcpServers]
+     * @param {string} opts.prompt - the full prompt text (system context + trigger context, etc.)
+     * @returns {Promise<{ text: string, stopReason: string, usage: object, sessionId: string }>}
+     */
+    async runTurn({ cwd, mode = "default", mcpServers = [], prompt }) {
+        const sessionId = await this.openSession({ cwd, mode, mcpServers });
+        try {
+            const result = await this.prompt(sessionId, prompt);
+            return { ...result, sessionId };
+        } finally {
+            await this.closeSession(sessionId);
         }
     }
 

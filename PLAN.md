@@ -19,8 +19,59 @@
    `repository.json`, templated from Sam's bot.
 8. **Cutover** — run alongside Mac-hosted BeZa during burn-in, then retire it.
 
-Currently on: **step 5 / 6** (memory files already seeded in step 2;
-remaining: Telegram conversational transport for taking new orders).
+Currently on: **step 6** — conversational transport built
+(`src/telegram-bot.mjs`, tested against a fake runner + stubbed Bot API).
+Blocked on two real-world things before it can run end-to-end: a live
+`@BotFather` token for BZ-V2's own bot identity, and Bernard & Zane's
+real Telegram user IDs to populate `allowedUsers`.
+
+## Decisions log
+
+- **DM, not group chat** (2026-06-08) — BZ-V2 talks to Bernard & Zane via
+  separate DMs, at least for now. Matches the original BeZa's model
+  (single hardcoded `TELEGRAM_ID`) but needs to support *two* user IDs,
+  not one — see step 6 design notes below.
+- **RBAC is wanted, eventually** (2026-06-08) — Sam's bot has a full
+  role/invite/audit system; Bernard wants BZ-V2 to grow toward something
+  like that, even if not in the first cut. For now: keep the user model
+  simple (Bernard + Zane, both full-trust), but don't paint into a corner —
+  `src/orders.mjs` and the Telegram transport should key actions by user ID
+  from day one (easy to layer roles on top of later) rather than assuming
+  a single global user.
+- **New Telegram bot needed** — BZ-V2 needs its own bot identity (own
+  @BotFather token), separate from the existing OpenClaw-hosted BeZa bot,
+  since it talks to Telegram directly with no gateway in between. Tron will
+  walk Bernard through @BotFather setup when step 6 build reaches the
+  point of needing a live token (not yet).
+
+## Step 6 (built, blocked on live credentials)
+- `src/agent-runner.mjs` refactored: `runTurn()` is now a thin wrapper
+  over three new primitives — `openSession()`, `prompt(sessionId, text)`,
+  `closeSession(sessionId)`. The wake path still uses `runTurn` (one
+  session per wake, matches BeZa's pattern); the conversational path
+  needs a session that survives across multiple user messages, hence
+  the split.
+- `src/telegram-bot.mjs` — `createTelegramBot()`: long-polls
+  `getUpdates` (no SDK — same `fetch`-direct style as `telegram.mjs`),
+  filters to `allowedUsers` (Telegram user id -> name, keyed per-user
+  from day one per the RBAC decision above), keeps **one persistent ACP
+  session per user** so the agent retains conversation state through
+  the order-taking reasoning loop, primes the *first* turn with the
+  system prompt + all `memory/*.md` (subsequent turns are just
+  `"<name>: <message>"` — the session already has context), and relays
+  every reply straight back to that user's chat. Unauthorized senders
+  are logged and silently ignored (DM model — no group RBAC needed yet).
+- `src/telegram-bot.test.mjs` — smoke test against a fake runner +
+  stubbed `fetch`; verifies one session opens per user, the first turn
+  is primed and later turns aren't, replies route to the right chat,
+  and unauthorized users are dropped. Passing (`npm test`).
+- **Still needed before this can run live:** (1) a fresh `@BotFather`
+  bot token for BZ-V2's own identity — Tron walks Bernard through
+  creation when ready; (2) Bernard & Zane's real Telegram user IDs to
+  populate `allowedUsers`; (3) an entrypoint that wires
+  `createTelegramBot` + `HAListener` + `createWakeHandler` together
+  against a live `ClaudeAgentRunner` (currently each piece is exercised
+  only in isolation against fakes).
 
 ## Step 4 (DONE)
 - `src/agent-runner.mjs` — `ClaudeAgentRunner`: owns the spawned ACP
