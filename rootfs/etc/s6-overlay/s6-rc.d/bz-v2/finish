@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+echo "[$(date -Iseconds)] INFO: BZ-V2 service stopped"

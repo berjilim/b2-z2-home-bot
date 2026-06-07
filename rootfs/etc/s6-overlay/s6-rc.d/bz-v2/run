@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Start BZ-V2 — translate Supervisor options.json into the env vars
+# src/main.mjs expects, then exec the single Node process that runs
+# everything (ACP runner, HA listener, wake-glue, Telegram bot).
+# ==============================================================================
+
+echo "[$(date -Iseconds)] INFO: Starting BZ-V2..."
+
+OPTIONS="/data/options.json"
+if [ ! -f "${OPTIONS}" ]; then
+    echo "[$(date -Iseconds)] FATAL: No options.json found"
+    exit 1
+fi
+
+export CLAUDE_CODE_OAUTH_TOKEN="$(jq -r '.claude_oauth_token' ${OPTIONS})"
+export TELEGRAM_BOT_TOKEN="$(jq -r '.telegram_bot_token' ${OPTIONS})"
+export TELEGRAM_BERNARD_ID="$(jq -r '.telegram_bernard_id' ${OPTIONS})"
+
+ZANE_ID="$(jq -r '.telegram_zane_id // empty' ${OPTIONS})"
+if [ -n "${ZANE_ID}" ]; then
+    export TELEGRAM_ZANE_ID="${ZANE_ID}"
+fi
+
+# Source SUPERVISOR_TOKEN from s6-overlay environment if not already set
+if [ -z "${SUPERVISOR_TOKEN}" ] && [ -f /run/s6/container_environment/SUPERVISOR_TOKEN ]; then
+    SUPERVISOR_TOKEN="$(cat /run/s6/container_environment/SUPERVISOR_TOKEN)"
+fi
+
+# Talk to HA over the internal Supervisor proxy — same box, no external
+# exposure, works identically whether Bernard is home or away (the only
+# leg that crosses the internet is Telegram <-> BZ-V2).
+export HA_URL="http://supervisor/core"
+export HA_TOKEN="${SUPERVISOR_TOKEN}"
+
+exec node /app/src/main.mjs
