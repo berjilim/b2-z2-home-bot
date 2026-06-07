@@ -19,11 +19,17 @@
    `repository.json`, templated from Sam's bot.
 8. **Cutover** — run alongside Mac-hosted BeZa during burn-in, then retire it.
 
-Currently on: **step 6** — conversational transport built
-(`src/telegram-bot.mjs`, tested against a fake runner + stubbed Bot API).
-Blocked on two real-world things before it can run end-to-end: a live
-`@BotFather` token for BZ-V2's own bot identity, and Bernard & Zane's
-real Telegram user IDs to populate `allowedUsers`.
+Currently on: **step 7** — step 6 is DONE and live-verified (2026-06-08):
+real `@b2z2_home_bot` bot token + Bernard's Telegram user ID wired in,
+`spike/telegram-bot-check.mjs` ran end-to-end against the real Bot API
+and ACP runner, Bernard DM'd the bot and confirmed replies look correct.
+Single-user (no Zane yet) — `allowedUsers` can grow later.
+
+Before full cutover we still need a real production entrypoint
+(currently each piece — telegram-bot, listener, wake-glue — is only
+wired together in spike/test scripts, not in a single `src/main.mjs`
+that runs them all against a live runner). That's folded into step 7/8
+work below.
 
 ## Decisions log
 
@@ -44,7 +50,7 @@ real Telegram user IDs to populate `allowedUsers`.
   walk Bernard through @BotFather setup when step 6 build reaches the
   point of needing a live token (not yet).
 
-## Step 6 (built, blocked on live credentials)
+## Step 6 (DONE — live-verified 2026-06-08)
 - `src/agent-runner.mjs` refactored: `runTurn()` is now a thin wrapper
   over three new primitives — `openSession()`, `prompt(sessionId, text)`,
   `closeSession(sessionId)`. The wake path still uses `runTurn` (one
@@ -65,13 +71,26 @@ real Telegram user IDs to populate `allowedUsers`.
   stubbed `fetch`; verifies one session opens per user, the first turn
   is primed and later turns aren't, replies route to the right chat,
   and unauthorized users are dropped. Passing (`npm test`).
-- **Still needed before this can run live:** (1) a fresh `@BotFather`
-  bot token for BZ-V2's own identity — Tron walks Bernard through
-  creation when ready; (2) Bernard & Zane's real Telegram user IDs to
-  populate `allowedUsers`; (3) an entrypoint that wires
-  `createTelegramBot` + `HAListener` + `createWakeHandler` together
-  against a live `ClaudeAgentRunner` (currently each piece is exercised
-  only in isolation against fakes).
+- **Live-verified 2026-06-08:** real `@b2z2_home_bot` token + Bernard's
+  Telegram user ID in `.env`, ran `npm run` equivalent of the live check
+  (`spike/telegram-bot-check.mjs`) against the real Bot API + ACP runner,
+  Bernard DM'd the bot from Telegram, two turns completed cleanly
+  (`stopReason=end_turn`), reply content confirmed correct. Single-user
+  for now (`allowedUsers` = Bernard only; Zane to be added later).
+- **Production entrypoint built (2026-06-08):** `src/main.mjs` (run via
+  `npm start`) wires `ClaudeAgentRunner` + `OrdersStore` + `HAListener`
+  + `createWakeHandler` + `createTelegramBot` into one process. Loads
+  `.env`, validates required vars fail-fast (`CLAUDE_CODE_OAUTH_TOKEN`,
+  `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BERNARD_ID`, `HA_URL`, `HA_TOKEN`,
+  optional `TELEGRAM_ZANE_ID`), and handles SIGINT/SIGTERM shutdown
+  (stops listener, bot, and runner cleanly). `mcpServers: []` for now —
+  HA MCP wiring is still TODO (tracked separately, not blocking step 7
+  packaging). Verified: `node --check` passes, full `npm test` suite
+  passes, and a dry run correctly fails fast on missing `HA_URL`/`HA_TOKEN`.
+- **Still needed before this can run live end-to-end:** a Home Assistant
+  long-lived access token + base URL (`HA_URL`/`HA_TOKEN` in `.env`) for
+  the listener's WebSocket connection — placeholders added to `.env`,
+  values pending from Bernard.
 
 ## Step 4 (DONE)
 - `src/agent-runner.mjs` — `ClaudeAgentRunner`: owns the spawned ACP
