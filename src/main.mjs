@@ -44,16 +44,21 @@ if (process.env.TELEGRAM_ZANE_ID) allowedUsers[process.env.TELEGRAM_ZANE_ID] = "
 const systemPromptPath = join(root, "prompts", "guardian-system-prompt.md");
 const memoryDir = join(root, "memory");
 const ordersPath = join(root, "standing-orders", "active.json");
-// HA's built-in "Model Context Protocol Server" integration exposes an
-// SSE endpoint at /mcp_server/sse — give the agent's own session the same
-// HA tools the listener already has network access to (internal Supervisor
-// proxy, no external exposure). Requires that integration to be enabled in HA.
+// Bundle the `hass-mcp` package (same one Bernard's Claude Code uses) as a
+// stdio MCP server — full REST/WebSocket entity access via HA_URL/HA_TOKEN,
+// not the Assist-exposure-scoped surface HA's built-in MCP Server integration
+// offers. Runs as a subprocess of the agent session over the internal
+// Supervisor proxy (HA_URL=http://supervisor/core, HA_TOKEN=$SUPERVISOR_TOKEN).
 const mcpServers = [
     {
-        type: "sse",
+        type: "stdio",
         name: "home-assistant",
-        url: `${process.env.HA_URL}/mcp_server/sse`,
-        headers: [{ name: "Authorization", value: `Bearer ${process.env.HA_TOKEN}` }],
+        command: "node",
+        args: [join(root, "node_modules", "hass-mcp", "dist", "index.js")],
+        env: [
+            { name: "HASS_URL", value: process.env.HA_URL },
+            { name: "HASS_TOKEN", value: process.env.HA_TOKEN },
+        ],
     },
 ];
 

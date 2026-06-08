@@ -13,6 +13,7 @@
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "^0.42.0",
     "dotenv": "^17.4.2",
+    "hass-mcp": "^0.1.7",
     "ws": "^8.21.0"
   }
 }
