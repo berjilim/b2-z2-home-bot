@@ -39,7 +39,7 @@ const fakeRunner = {
 const sent = []; // { text, chatId }
 const sendTelegram = async (text, chatId) => { sent.push({ text, chatId }); return true; };
 
-// Placeholder + edit-in-place ("thinking..." -> real reply): track both legs
+// Placeholder + edit-in-place ("processing..." -> real reply): track both legs
 const placeholders = []; // { chatId, text }
 const edits = []; // { chatId, messageId, text }
 let nextMessageId = 1;
@@ -108,11 +108,11 @@ assert.doesNotMatch(prompts[1].text, /You are BeZa/, "no re-priming on subsequen
 assert.match(prompts[1].text, /Bernard: Yes, arm it/);
 
 // Replies use the placeholder -> edit-in-place flow, not a fresh send each
-// time: a "thinking..." placeholder fires immediately, then gets swapped for
+// time: a "processing..." placeholder fires immediately, then gets swapped for
 // the real reply once the turn resolves — both legs routed to Bernard's chat,
 // stranger ignored entirely (no placeholder/reply for them at all).
 assert.strictEqual(placeholders.length, 2, "one placeholder per turn");
-assert.ok(placeholders.every((p) => p.chatId === "111" && /Thinking/.test(p.text)));
+assert.ok(placeholders.every((p) => p.chatId === "111" && /Processing/.test(p.text)));
 assert.strictEqual(edits.length, 2, "each placeholder gets edited in place with the real reply");
 assert.ok(edits.every((e) => e.chatId === "111"));
 assert.deepStrictEqual(edits.map((e) => e.messageId), placeholders.map((_, i) => i + 1), "edits target the placeholder message ids returned by sendPlaceholder");

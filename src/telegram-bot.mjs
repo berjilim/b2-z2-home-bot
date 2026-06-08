@@ -26,7 +26,7 @@ import { join } from "node:path";
  * @param {Record<string, string>} opts.allowedUsers - Telegram user id -> display name
  * @param {(text: string, chatId: string|number) => Promise<boolean>} opts.sendTelegram
  * @param {(chatId: string|number, text: string) => Promise<number|null>} [opts.sendPlaceholder] -
- *   sends a "thinking..." placeholder immediately on receipt, returns its message_id
+ *   sends a "processing..." placeholder immediately on receipt, returns its message_id
  * @param {(chatId: string|number, messageId: number, text: string) => Promise<boolean>} [opts.editReply] -
  *   swaps the placeholder's content for the real reply once the turn completes
  * @param {string} [opts.mode] - conversational session mode; default "default" (asks before acting)
@@ -84,10 +84,10 @@ export function createTelegramBot({
         entry.primed = true;
         entry.lastActivity = Date.now();
 
-        // Fire the "thinking..." placeholder immediately — turns can take
+        // Fire the "processing..." placeholder immediately — turns can take
         // 10-30s with HA tool calls in the loop, and there's otherwise no
         // visual cue anything is happening until the reply lands.
-        const placeholderId = sendPlaceholder ? await sendPlaceholder(userId, "🤔 Thinking…") : null;
+        const placeholderId = sendPlaceholder ? await sendPlaceholder(userId, "🤖 Processing…") : null;
 
         logger.info(`[telegram-bot] turn for ${name} (${userId})`);
         const result = await runner.prompt(entry.sessionId, prompt);

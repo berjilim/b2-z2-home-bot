@@ -78,7 +78,7 @@ async function sendTelegramTo(text, chatId) {
     return data.ok;
 }
 
-// "Thinking..." placeholder + edit-in-place pattern: send a placeholder the
+// "Processing..." placeholder + edit-in-place pattern: send a placeholder the
 // instant a message lands (so there's an immediate visual cue that something
 // is happening — turns can take 10-30s with HA tool calls in the loop), then
 // swap its content for the real reply once the turn completes. Telegram
