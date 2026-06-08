@@ -40,18 +40,31 @@ export function createTelegramBot({
     sendTelegram,
     mode = "default",
     pollIntervalMs = 1000,
+    // How long a user's session can sit idle before we recycle it. Persistent
+    // sessions exist so multi-turn flows (reason -> clarify -> plan -> confirm
+    // -> arm) keep continuity — they do NOT need to remember a conversation
+    // from days/weeks ago. Left unbounded, history (and cost) grows forever;
+    // recycling on idle keeps cost flat and matches the "you wake up fresh —
+    // memory files are your continuity" design the wake path already follows.
+    idleTimeoutMs = 4 * 60 * 60 * 1000,
     logger = console,
 }) {
-    const sessions = new Map(); // userId -> { sessionId, primed }
+    const sessions = new Map(); // userId -> { sessionId, primed, lastActivity }
     let offset = 0;
     let stopped = true;
     let pollTimer = null;
 
     async function getOrCreateSession(userId) {
         let entry = sessions.get(userId);
+        if (entry && Date.now() - entry.lastActivity > idleTimeoutMs) {
+            logger.info(`[telegram-bot] recycling idle session for ${userId} (idle ${Math.round((Date.now() - entry.lastActivity) / 60000)}m)`);
+            await runner.closeSession(entry.sessionId).catch(() => {});
+            sessions.delete(userId);
+            entry = null;
+        }
         if (!entry) {
             const sessionId = await runner.openSession({ cwd: projectRoot, mode, mcpServers });
-            entry = { sessionId, primed: false };
+            entry = { sessionId, primed: false, lastActivity: Date.now() };
             sessions.set(userId, entry);
         }
         return entry;
@@ -63,6 +76,7 @@ export function createTelegramBot({
             ? `${name}: ${text}`
             : buildPrimingPrompt({ systemPromptPath, memoryDir, name, text });
         entry.primed = true;
+        entry.lastActivity = Date.now();
 
         logger.info(`[telegram-bot] turn for ${name} (${userId})`);
         const result = await runner.prompt(entry.sessionId, prompt);

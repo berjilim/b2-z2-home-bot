@@ -98,5 +98,68 @@ assert.ok(sent.every((s) => s.chatId === "111"), "all replies routed to the auth
 assert.strictEqual(sent[0].text, prompts[0].text ? sent[0].text : sent[0].text); // sanity: non-empty
 assert.match(sent[0].text, /^\[reply to:/);
 
+// --- idle-timeout recycling: a session sitting idle past idleTimeoutMs gets
+// closed and replaced with a fresh (re-primed) one on the next message ---
+const closed = [];
+const recyclingRunner = {
+    ...fakeRunner,
+    closeSession: async (sessionId) => { closed.push(sessionId); },
+};
+const recyclingOpened = [];
+recyclingRunner.openSession = async (opts) => {
+    const sessionId = `recycle-sess-${nextSessionId++}`;
+    recyclingOpened.push({ sessionId, ...opts });
+    return sessionId;
+};
+const recyclingPrompts = [];
+recyclingRunner.prompt = async (sessionId, text) => {
+    recyclingPrompts.push({ sessionId, text });
+    return { text: "[reply]", stopReason: "end_turn", usage: { totalTokens: 10 } };
+};
+
+// Time-gated (not batch-index-gated) so the gap between the two messages is
+// real wall-clock time greater than idleTimeoutMs — that's what we're testing.
+const start = Date.now();
+let firstSent = false;
+let secondSent = false;
+globalThis.fetch = async (url) => {
+    assert.match(url, /getUpdates/);
+    const elapsed = Date.now() - start;
+    let result = [];
+    if (!firstSent) {
+        firstSent = true;
+        result = [{ update_id: 10, message: { from: { id: 111 }, text: "first message" } }];
+    } else if (!secondSent && elapsed > 50) { // well past idleTimeoutMs of 20ms
+        secondSent = true;
+        result = [{ update_id: 11, message: { from: { id: 111 }, text: "second message, after idling" } }];
+    }
+    return { json: async () => ({ ok: true, result }) };
+};
+
+const recyclingBot = createTelegramBot({
+    runner: recyclingRunner,
+    projectRoot: dir,
+    systemPromptPath: promptPath,
+    memoryDir,
+    mcpServers: [],
+    botToken: "fake-token",
+    allowedUsers: { "111": "Bernard" },
+    sendTelegram: async () => true,
+    pollIntervalMs: 5,
+    idleTimeoutMs: 20, // tiny — second message arrives well past this
+    logger: { info: () => {}, error: () => {} },
+});
+
+await recyclingBot.start();
+await new Promise((r) => setTimeout(r, 200)); // covers: first message, idle gap (>50ms), second message + recycle
+await recyclingBot.stop();
+
+assert.strictEqual(recyclingOpened.length, 2, "idle session recycled — second message opens a fresh one");
+// closeSession fires twice: once for the idle recycle, once for bot.stop()'s cleanup
+assert.strictEqual(closed.length, 2);
+assert.ok(closed.includes(recyclingOpened[0].sessionId), "the stale session was explicitly closed on recycle (not just at shutdown)");
+assert.notStrictEqual(recyclingPrompts[1].sessionId, recyclingPrompts[0].sessionId, "second turn runs on the fresh session");
+assert.match(recyclingPrompts[1].text, /You are BeZa\. Be terse\./, "fresh session is re-primed with the system prompt");
+
 rmSync(dir, { recursive: true, force: true });
 console.log("✓ telegram-bot smoke test passed");
