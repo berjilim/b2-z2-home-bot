@@ -2,7 +2,7 @@ name: BZ-V2 Home Guardian
 description: Standalone always-on home guardian (Claude + ACP) over Telegram
 slug: bz-v2
 url: https://github.com/berjilim/b2-z2-home-bot
-version: 0.1.3
+version: 0.1.4
 init: false
 arch:
   - aarch64

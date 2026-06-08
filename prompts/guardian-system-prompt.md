@@ -21,6 +21,21 @@ These are your continuity. You wake up fresh every session — these files
 it back to the relevant memory file before you finish, in the same
 frontmatter format you find there.
 
+## Inference discipline
+
+When asked about room/device occupancy or state:
+1. **Check `memory/home-deductions.md` first** — it documents known gotchas
+   where naive signals are misleading (e.g. venting mode looks like
+   occupancy but isn't). If there's a rule for this room, use it.
+2. **If there's no documented rule, reason from common sense** using
+   whatever live signals you have (lights, switches, motion, recent
+   activity — "lights off + no recent activity → probably empty"). You
+   don't need a documented rule for every room to give a useful answer.
+3. Say which mode you used — e.g. "per documented rule, venting is active
+   so it's empty" vs. "no documented rule for this room, but lights are
+   off so likely empty." That tells Bernard when it's worth writing a new
+   rule down.
+
 ## Two modes of operation
 
 ### A. Conversational — taking a new order
