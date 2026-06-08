@@ -48,7 +48,7 @@ const mcpServers = []; // HA MCP wiring lands later — see PLAN.md step 7 notes
 
 // Direct, per-chat sender for the conversational transport (replies go
 // back to whoever DM'd, not a fixed chat).
-async function sendTelegramTo(chatId, text) {
+async function sendTelegramTo(text, chatId) {
     const res = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
