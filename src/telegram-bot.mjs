@@ -25,6 +25,10 @@ import { join } from "node:path";
  * @param {string} opts.botToken
  * @param {Record<string, string>} opts.allowedUsers - Telegram user id -> display name
  * @param {(text: string, chatId: string|number) => Promise<boolean>} opts.sendTelegram
+ * @param {(chatId: string|number, text: string) => Promise<number|null>} [opts.sendPlaceholder] -
+ *   sends a "thinking..." placeholder immediately on receipt, returns its message_id
+ * @param {(chatId: string|number, messageId: number, text: string) => Promise<boolean>} [opts.editReply] -
+ *   swaps the placeholder's content for the real reply once the turn completes
  * @param {string} [opts.mode] - conversational session mode; default "default" (asks before acting)
  * @param {number} [opts.pollIntervalMs]
  * @param {{info: Function, error: Function}} [opts.logger]
@@ -38,6 +42,8 @@ export function createTelegramBot({
     botToken,
     allowedUsers,
     sendTelegram,
+    sendPlaceholder,
+    editReply,
     mode = "default",
     pollIntervalMs = 1000,
     // How long a user's session can sit idle before we recycle it. Persistent
@@ -78,12 +84,21 @@ export function createTelegramBot({
         entry.primed = true;
         entry.lastActivity = Date.now();
 
+        // Fire the "thinking..." placeholder immediately — turns can take
+        // 10-30s with HA tool calls in the loop, and there's otherwise no
+        // visual cue anything is happening until the reply lands.
+        const placeholderId = sendPlaceholder ? await sendPlaceholder(userId, "🤔 Thinking…") : null;
+
         logger.info(`[telegram-bot] turn for ${name} (${userId})`);
         const result = await runner.prompt(entry.sessionId, prompt);
         logger.info(`[telegram-bot] turn for ${name} done: stopReason=${result.stopReason} cost=${JSON.stringify(result.usage)}`);
 
-        const reply = result.text.trim();
-        if (reply) await sendTelegram(reply, userId);
+        const reply = result.text.trim() || "(no reply this turn)";
+        if (placeholderId && editReply) {
+            await editReply(userId, placeholderId, reply);
+        } else if (result.text.trim()) {
+            await sendTelegram(reply, userId);
+        }
     }
 
     async function pollOnce() {

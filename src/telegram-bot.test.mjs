@@ -39,6 +39,19 @@ const fakeRunner = {
 const sent = []; // { text, chatId }
 const sendTelegram = async (text, chatId) => { sent.push({ text, chatId }); return true; };
 
+// Placeholder + edit-in-place ("thinking..." -> real reply): track both legs
+const placeholders = []; // { chatId, text }
+const edits = []; // { chatId, messageId, text }
+let nextMessageId = 1;
+const sendPlaceholder = async (chatId, text) => {
+    placeholders.push({ chatId, text });
+    return nextMessageId++;
+};
+const editReply = async (chatId, messageId, text) => {
+    edits.push({ chatId, messageId, text });
+    return true;
+};
+
 // --- fake fetch for getUpdates: feed two scripted batches then go quiet ---
 const batches = [
     [
@@ -67,6 +80,8 @@ const bot = createTelegramBot({
     botToken: "fake-token",
     allowedUsers: { "111": "Bernard" },
     sendTelegram,
+    sendPlaceholder,
+    editReply,
     pollIntervalMs: 5,
     logger: { info: () => {}, error: () => {} },
 });
@@ -92,11 +107,17 @@ assert.strictEqual(prompts[1].sessionId, prompts[0].sessionId, "same session reu
 assert.doesNotMatch(prompts[1].text, /You are BeZa/, "no re-priming on subsequent turns");
 assert.match(prompts[1].text, /Bernard: Yes, arm it/);
 
-// Replies relayed back to Bernard's chat id, stranger ignored entirely
-assert.strictEqual(sent.length, 2);
-assert.ok(sent.every((s) => s.chatId === "111"), "all replies routed to the authorized user's chat");
-assert.strictEqual(sent[0].text, prompts[0].text ? sent[0].text : sent[0].text); // sanity: non-empty
-assert.match(sent[0].text, /^\[reply to:/);
+// Replies use the placeholder -> edit-in-place flow, not a fresh send each
+// time: a "thinking..." placeholder fires immediately, then gets swapped for
+// the real reply once the turn resolves — both legs routed to Bernard's chat,
+// stranger ignored entirely (no placeholder/reply for them at all).
+assert.strictEqual(placeholders.length, 2, "one placeholder per turn");
+assert.ok(placeholders.every((p) => p.chatId === "111" && /Thinking/.test(p.text)));
+assert.strictEqual(edits.length, 2, "each placeholder gets edited in place with the real reply");
+assert.ok(edits.every((e) => e.chatId === "111"));
+assert.deepStrictEqual(edits.map((e) => e.messageId), placeholders.map((_, i) => i + 1), "edits target the placeholder message ids returned by sendPlaceholder");
+assert.match(edits[0].text, /^\[reply to:/);
+assert.strictEqual(sent.length, 0, "plain sendTelegram is bypassed in favor of placeholder+edit when both are wired up");
 
 // --- idle-timeout recycling: a session sitting idle past idleTimeoutMs gets
 // closed and replaced with a fresh (re-primed) one on the next message ---

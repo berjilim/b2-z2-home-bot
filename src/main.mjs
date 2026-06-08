@@ -78,6 +78,37 @@ async function sendTelegramTo(text, chatId) {
     return data.ok;
 }
 
+// "Thinking..." placeholder + edit-in-place pattern: send a placeholder the
+// instant a message lands (so there's an immediate visual cue that something
+// is happening — turns can take 10-30s with HA tool calls in the loop), then
+// swap its content for the real reply once the turn completes. Telegram
+// animates the text change client-side — feels far more polished than a
+// typing bubble that auto-expires after 5s on a long-running turn.
+async function sendTelegramPlaceholder(chatId, text) {
+    const res = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+        console.error(`[telegram] placeholder send failed: ${data.description}`);
+        return null;
+    }
+    return data.result.message_id;
+}
+
+async function editTelegramMessage(chatId, messageId, text) {
+    const res = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/editMessageText`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, message_id: messageId, text }),
+    });
+    const data = await res.json();
+    if (!data.ok) console.error(`[telegram] edit failed: ${data.description}`);
+    return data.ok;
+}
+
 // Fixed-chat sender for the listener/wake-glue path (notifications and
 // wake replies always go to Bernard for now — DM model, single guardian).
 const notifyBernard = makeTelegramSender({
@@ -121,6 +152,8 @@ const bot = createTelegramBot({
     botToken: process.env.TELEGRAM_BOT_TOKEN,
     allowedUsers,
     sendTelegram: sendTelegramTo,
+    sendPlaceholder: sendTelegramPlaceholder,
+    editReply: editTelegramMessage,
     mode: "default",
     logger: console,
 });
