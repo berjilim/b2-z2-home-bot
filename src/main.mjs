@@ -42,7 +42,10 @@ const allowedUsers = { [process.env.TELEGRAM_BERNARD_ID]: "Bernard" };
 if (process.env.TELEGRAM_ZANE_ID) allowedUsers[process.env.TELEGRAM_ZANE_ID] = "Zane";
 
 const systemPromptPath = join(root, "prompts", "guardian-system-prompt.md");
-const memoryDir = join(root, "memory");
+// MEMORY_DIR points at the add-on's persistent /data/memory (seeded from
+// the image's memory/ on first boot — see rootfs run script) so learned
+// rules survive updates. Falls back to the repo dir for local dev.
+const memoryDir = process.env.MEMORY_DIR || join(root, "memory");
 const ordersPath = join(root, "standing-orders", "active.json");
 // Bundle the `hass-mcp` package (same one Bernard's Claude Code uses) as a
 // stdio MCP server — full REST/WebSocket entity access via HA_URL/HA_TOKEN,

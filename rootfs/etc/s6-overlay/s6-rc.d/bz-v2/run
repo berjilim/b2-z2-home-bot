@@ -41,4 +41,13 @@ fi
 export HA_URL="http://supervisor/core"
 export HA_TOKEN="${SUPERVISOR_TOKEN}"
 
+# Memory files (home-entities.md, home-deductions.md, etc.) need to survive
+# add-on updates — /data is the add-on's persistent volume (same place
+# options.json lives), but the image only ships a baked-in starting copy.
+# Seed /data/memory from the image on first boot (cp -n: never clobber
+# files the agent has already learned/written), then point the app there.
+mkdir -p /data/memory
+cp -n /app/memory/*.md /data/memory/ 2>/dev/null
+export MEMORY_DIR="/data/memory"
+
 exec node /app/src/main.mjs
