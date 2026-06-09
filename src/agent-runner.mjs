@@ -9,9 +9,10 @@
 // state needed between wakes).
 //
 // Auto-handles `session/request_permission` by approving in modes that
-// don't need a human in the loop (`bypassPermissions`, `dontAsk`,
-// `acceptEdits`) and rejecting in `plan` — there is no Telegram round
-// trip during a trigger-driven wake.
+// don't need a human in the loop (`dontAsk`, `acceptEdits`) and rejecting
+// in `plan` — there is no Telegram round trip during a trigger-driven wake.
+// Note: `bypassPermissions` is blocked by the ACP package when running as
+// root (which HA add-ons do), so wake turns use `dontAsk` instead.
 
 import { spawn } from "node:child_process";
 

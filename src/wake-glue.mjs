@@ -18,7 +18,7 @@ import { join } from "node:path";
  * @param {string} opts.memoryDir
  * @param {Array}  opts.mcpServers - MCP server configs (e.g. Home Assistant) in ACP session/new format
  * @param {(text: string) => Promise<boolean>} opts.sendTelegram
- * @param {string} [opts.mode] - unattended session mode; default "bypassPermissions"
+ * @param {string} [opts.mode] - unattended session mode; default "dontAsk"
  * @param {{info: Function, error: Function}} [opts.logger]
  * @returns {(order: object, triggerContext: object) => Promise<void>} onWake handler for HAListener
  */
@@ -29,7 +29,7 @@ export function createWakeHandler({
     memoryDir,
     mcpServers,
     sendTelegram,
-    mode = "bypassPermissions",
+    mode = "dontAsk",
     logger = console,
 }) {
     return async function onWake(order, triggerContext) {

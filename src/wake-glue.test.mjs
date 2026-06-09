@@ -51,7 +51,7 @@ assert.match(capturedPrompt.prompt, /BEZA TRIGGER FIRED/);
 assert.match(capturedPrompt.prompt, /order_id: dry-toilet/);
 assert.match(capturedPrompt.prompt, /"to":"55"/);
 assert.strictEqual(capturedPrompt.cwd, dir, "session runs scoped to project root, not operator's ~/.claude");
-assert.strictEqual(capturedPrompt.mode, "bypassPermissions", "default unattended mode");
+assert.strictEqual(capturedPrompt.mode, "dontAsk", "default unattended mode");
 
 // The agent's final reply IS the one notification — relayed verbatim
 assert.deepStrictEqual(sent, ["Done — ran the exhaust fan for 10 minutes. Toilet should be dry now."]);
