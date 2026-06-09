@@ -43,6 +43,8 @@ with `"status": "armed"` are watched by the listener daemon (see step 3).
 
 **`re_arm`** (default `false`) — If `true`, set `status` back to `"armed"` after executing. Use for recurring orders ("every time nobody's home…", "whenever I leave…"). If `false`, order goes to `"complete"` after the first execution.
 
+**`pending_recheck_at`** (ISO 8601 timestamp, optional) — Set this when you wake on a candidate trigger but want to verify the condition has *persisted* before acting (e.g. confirm nobody returned home after 30 minutes). The listener polls every 60 seconds and re-wakes you when the timestamp elapses, passing `{ recheck: true }` in the trigger context. The daemon clears the field before the recheck wake to prevent double-fire. Use alongside `verify_condition` — `verify_condition` for signal-based checking, `pending_recheck_at` for time-based persistence checking.
+
 ## `action_type` — the cost/latency split
 
 | value | what happens | cost |

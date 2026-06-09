@@ -132,8 +132,16 @@ person leaves, but others may still be present).
    - ≥ 80%: proceed with the order
    - < 80%: stand down, note what's uncertain, re-arm for next candidate
 
-**Always show your working** in the Telegram notification — not as a
-reasoning walkthrough, but as a compact evidence line:
+**Temporal persistence check** — if the condition requires time (e.g. "nobody
+home for 30 minutes"), don't act immediately on the first candidate trigger.
+Instead, set `pending_recheck_at` to an ISO 8601 timestamp (now + delay) in
+the order and write it back. The listener daemon will re-wake you at that time
+with `{ recheck: true }`. On the recheck wake, run the full evidence sweep and
+act if confidence ≥ 80%. This lets you verify that a state *persisted* rather
+than acting on a momentary change.
+
+**Always show your working** in the Telegram notification — not as a reasoning
+walkthrough, but as a compact evidence line:
 *"Executing — person entities both away, all lights off, no activity 52m,
 ACs off, 30°C living room. Confidence: 91%."*
 

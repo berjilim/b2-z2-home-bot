@@ -29,6 +29,7 @@ export class HAListener {
     #reconnectAttempt = 0;
     #cooldowns = new Map(); // orderId -> last-trigger timestamp
     #heartbeatTimer = null;
+    #recheckTimer = null;
 
     /**
      * @param {object} opts
@@ -52,10 +53,12 @@ export class HAListener {
         this.#logger.info("[listener] starting");
         this.#connect();
         this.#startHeartbeat();
+        this.#recheckTimer = setInterval(() => this.#checkPendingRechecks(), 60_000);
     }
 
     stop() {
         clearInterval(this.#heartbeatTimer);
+        clearInterval(this.#recheckTimer);
         this.#ws?.close();
     }
 
@@ -104,6 +107,44 @@ export class HAListener {
                 this.#ws.send(JSON.stringify({ id: this.#msgId++, type: "ping" }));
             }
         }, 30000);
+    }
+
+    // --- Scheduled recheck poller ---
+
+    async #checkPendingRechecks() {
+        let armed;
+        try {
+            armed = this.#ordersStore.armed();
+        } catch (e) {
+            this.#logger.error(`[recheck] failed to load orders: ${e.message}`);
+            return;
+        }
+
+        const now = Date.now();
+        for (const order of armed) {
+            if (!order.pending_recheck_at) continue;
+            const recheckTime = new Date(order.pending_recheck_at).getTime();
+            if (isNaN(recheckTime)) {
+                this.#logger.error(`[recheck] order "${order.id}" has malformed pending_recheck_at — skipping`);
+                continue;
+            }
+            if (recheckTime > now) continue;
+
+            // Clear before waking so a crash/restart doesn't double-fire
+            try {
+                this.#ordersStore.update(order.id, { pending_recheck_at: undefined });
+            } catch (e) {
+                this.#logger.error(`[recheck] failed to clear pending_recheck_at for "${order.id}": ${e.message}`);
+                continue;
+            }
+
+            this.#logger.info(`[recheck] order "${order.id}" recheck elapsed — waking agent`);
+            try {
+                await this.#onWake(order, { recheck: true });
+            } catch (e) {
+                this.#logger.error(`[recheck] wake failed for "${order.id}": ${e.message}`);
+            }
+        }
     }
 
     // --- Trigger evaluation & dispatch ---
