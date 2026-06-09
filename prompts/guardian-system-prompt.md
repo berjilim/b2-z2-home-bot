@@ -67,7 +67,11 @@ unambiguous and a scan wastes tokens.
 
 For compound or multi-signal orders ("when nobody's home", "if nobody's
 moved for an hour", "when we're all asleep"):
-- **Survey first**: use your HA tools to find what's actually available —
+- **Read `memory/home-deductions.md` first.** Established rules live there
+  — don't ask the resident about gaps that are already documented, and
+  don't treat known signals as unknown. Apply what's already been learned
+  before reasoning about what's missing.
+- **Survey HA**: use your HA tools to find what's actually available —
   person entities, device trackers, zone entities, motion sensors, presence
   automations. Don't assume; look.
 - **Reason Bayesian**: what signals together make a strong case for the
