@@ -49,6 +49,11 @@ const memoryDir = process.env.MEMORY_DIR || join(root, "memory");
 // ORDERS_PATH points at /data/standing-orders/active.json (persistent volume)
 // so armed orders survive add-on updates — same fix as MEMORY_DIR above.
 const ordersPath = process.env.ORDERS_PATH || join(root, "standing-orders", "active.json");
+// AGENT_CWD is the working directory for all ACP agent sessions. On the
+// Supervisor this is /data (persistent volume) so BZ's file tool writes
+// (memory/home-deductions.md, standing-orders/active.json etc.) land in
+// /data/... and survive add-on updates. Falls back to /app for local dev.
+const agentCwd = process.env.AGENT_CWD || root;
 // Bundle the `hass-mcp` package (same one Bernard's Claude Code uses) as a
 // stdio MCP server — full REST/WebSocket entity access via HA_URL/HA_TOKEN,
 // not the Assist-exposure-scoped surface HA's built-in MCP Server integration
@@ -127,7 +132,7 @@ const ordersStore = new OrdersStore(ordersPath);
 
 const onWake = createWakeHandler({
     runner,
-    projectRoot: root,
+    projectRoot: agentCwd,
     systemPromptPath,
     memoryDir,
     mcpServers,
@@ -147,7 +152,7 @@ const listener = new HAListener({
 
 const bot = createTelegramBot({
     runner,
-    projectRoot: root,
+    projectRoot: agentCwd,
     systemPromptPath,
     memoryDir,
     mcpServers,

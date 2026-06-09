@@ -56,4 +56,9 @@ mkdir -p /data/standing-orders
 cp -n /app/standing-orders/active.json /data/standing-orders/ 2>/dev/null
 export ORDERS_PATH="/data/standing-orders/active.json"
 
+# Set agent cwd to /data so BZ's file tool writes (memory/*.md,
+# standing-orders/active.json) go to the persistent volume, not /app
+# (which is inside the container image and wiped on every update).
+export AGENT_CWD="/data"
+
 exec node /app/src/main.mjs
