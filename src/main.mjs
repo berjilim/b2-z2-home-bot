@@ -46,7 +46,9 @@ const systemPromptPath = join(root, "prompts", "guardian-system-prompt.md");
 // the image's memory/ on first boot — see rootfs run script) so learned
 // rules survive updates. Falls back to the repo dir for local dev.
 const memoryDir = process.env.MEMORY_DIR || join(root, "memory");
-const ordersPath = join(root, "standing-orders", "active.json");
+// ORDERS_PATH points at /data/standing-orders/active.json (persistent volume)
+// so armed orders survive add-on updates — same fix as MEMORY_DIR above.
+const ordersPath = process.env.ORDERS_PATH || join(root, "standing-orders", "active.json");
 // Bundle the `hass-mcp` package (same one Bernard's Claude Code uses) as a
 // stdio MCP server — full REST/WebSocket entity access via HA_URL/HA_TOKEN,
 // not the Assist-exposure-scoped surface HA's built-in MCP Server integration

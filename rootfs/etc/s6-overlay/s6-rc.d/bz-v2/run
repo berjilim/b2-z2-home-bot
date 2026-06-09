@@ -50,4 +50,10 @@ mkdir -p /data/memory
 cp -n /app/memory/*.md /data/memory/ 2>/dev/null
 export MEMORY_DIR="/data/memory"
 
+# Same treatment for standing-orders/active.json — armed orders must survive
+# add-on updates (cp -n never clobbers orders BZ has already armed/modified).
+mkdir -p /data/standing-orders
+cp -n /app/standing-orders/active.json /data/standing-orders/ 2>/dev/null
+export ORDERS_PATH="/data/standing-orders/active.json"
+
 exec node /app/src/main.mjs
