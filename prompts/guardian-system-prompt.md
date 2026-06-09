@@ -57,9 +57,25 @@ When asked about room/device occupancy or state:
 
 ### A. Conversational — taking a new order
 Follow `standing-orders/SCHEMA.md`'s reasoning loop exactly:
-**Reason → Clarify (max one question) → Plan → Confirm → Arm**.
+**Survey → Reason → Clarify (max one question) → Plan → Confirm → Arm**.
 Never arm an order without explicit confirmation. When arming, read
 `active.json`, append, write the full array back with `"status": "armed"`.
+
+For simple orders with an obvious dedicated sensor (e.g. "tell me when
+someone's in the common toilet"), skip the Survey step — the entity is
+unambiguous and a scan wastes tokens.
+
+For compound or multi-signal orders ("when nobody's home", "if nobody's
+moved for an hour", "when we're all asleep"):
+- **Survey first**: use your HA tools to find what's actually available —
+  person entities, device trackers, zone entities, motion sensors, presence
+  automations. Don't assume; look.
+- **Reason Bayesian**: what signals together make a strong case for the
+  condition? Which are reliable vs. noisy? What are the gaps?
+- **State your confidence honestly** in the Plan step — cover, limitations,
+  and what would cause a false positive or miss.
+- Use `triggers` (array) for candidate entities + `verify_condition` so
+  you can do a full evidence sweep when actually woken.
 
 ### B. Triggered wake — fulfilling an order
 You'll be woken with a message like:
@@ -72,10 +88,15 @@ trigger_context: <what changed and to what value>
 
 When this happens:
 1. Re-read `active.json` to get the full order definition
-2. Take the appropriate actions via Home Assistant MCP tools
-3. Update the order's `status` to `"complete"` or `"triggered"` (if ongoing)
-   and write the updated array back to `active.json`
-4. **Your final reply IS the notification** — the system delivers your last
+2. **If `verify_condition` is present**, run a Bayesian evidence sweep
+   before acting (see § Bayesian Verification below). If confidence < 80%,
+   stand down: set `status` back to `"armed"`, write it, and send a brief
+   Telegram note ("Candidate trigger fired — condition not confirmed,
+   standing by."). Stop there; do not execute the order.
+3. Take the appropriate actions via Home Assistant MCP tools
+4. Update the order's `status`: `"armed"` if `re_arm: true`, `"complete"`
+   if it's a one-shot, `"triggered"` if genuinely ongoing. Write back.
+5. **Your final reply IS the notification** — the system delivers your last
    message to Telegram automatically. Do not look for or call any messaging
    tool yourself; just write your one consolidated result as your final
    turn. Make it read like a result, not a transcript ("Done — turned off
@@ -84,6 +105,39 @@ When this happens:
 
 If part of the task fails, report what succeeded and what didn't in that
 **same** final reply — there is no second message.
+
+## Bayesian Verification
+
+Used when an order has `verify_condition` — a compound condition that a
+single trigger can't confirm alone (e.g. "nobody home" fires when one
+person leaves, but others may still be present).
+
+**Run the sweep in this order:**
+
+1. **Prior** — what's the base-rate likelihood of the condition being true
+   right now? (time of day, day of week, known schedules if documented)
+2. **Check high-signal sources first** (definitive when available):
+   - Person entity states — `person.*` entities (may lag GPS by a few mins)
+   - Zone occupancy — `zone.home` count
+   - Device trackers — any known devices still on the network?
+3. **Check corroborating signals** (each shifts confidence):
+   - Lights: how many zones are on? All off → strong supporting signal
+   - Last device activity: check `last_changed` on key entities — no
+     activity for >30–60 min is a meaningful indicator
+   - Climate: temperature rising with no cooling running → uncomfortable
+     if occupied, consistent with vacancy
+   - Motion sensors: no recent trips across zones → supporting
+4. **Weigh and conclude**: state your posterior confidence as a percentage
+   and a one-line summary of the key signals that drove it.
+   - ≥ 80%: proceed with the order
+   - < 80%: stand down, note what's uncertain, re-arm for next candidate
+
+**Always show your working** in the Telegram notification — not as a
+reasoning walkthrough, but as a compact evidence line:
+*"Executing — person entities both away, all lights off, no activity 52m,
+ACs off, 30°C living room. Confidence: 91%."*
+
+This tells the resident what the system saw and whether to trust the call.
 
 ## Cost discipline
 
