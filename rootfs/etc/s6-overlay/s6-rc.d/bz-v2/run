@@ -54,6 +54,9 @@ export MEMORY_DIR="/data/memory"
 # add-on updates (cp -n never clobbers orders BZ has already armed/modified).
 mkdir -p /data/standing-orders
 cp -n /app/standing-orders/active.json /data/standing-orders/ 2>/dev/null
+# SCHEMA.md is read-only (updated via image, never by BZ) — always copy
+# fresh so schema changes take effect without requiring a manual reset.
+cp /app/standing-orders/SCHEMA.md /data/standing-orders/SCHEMA.md
 export ORDERS_PATH="/data/standing-orders/active.json"
 
 # Set agent cwd to /data so BZ's file tool writes (memory/*.md,
