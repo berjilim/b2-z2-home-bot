@@ -137,7 +137,7 @@ const onWake = createWakeHandler({
     memoryDir,
     mcpServers,
     sendTelegram: notifyBernard,
-    mode: "bypassPermissions",
+    mode: "dontAsk",
     logger: console,
 });
 
