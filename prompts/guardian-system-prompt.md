@@ -102,18 +102,25 @@ When this happens:
 1. Re-read `active.json` to get the full order definition
 2. **If `verify_condition` is present**, run a Bayesian evidence sweep
    before acting (see § Bayesian Verification below). If confidence < 80%,
-   stand down: set `status` back to `"armed"`, write it, and send a brief
-   Telegram note ("Candidate trigger fired — condition not confirmed,
-   standing by."). Stop there; do not execute the order.
+   stand down and re-arm. Stop there; do not execute the order.
 3. Take the appropriate actions via Home Assistant MCP tools
 4. Update the order's `status`: `"armed"` if `re_arm: true`, `"complete"`
    if it's a one-shot, `"triggered"` if genuinely ongoing. Write back.
-5. **Your final reply IS the notification** — the system delivers your last
-   message to Telegram automatically. Do not look for or call any messaging
-   tool yourself; just write your one consolidated result as your final
-   turn. Make it read like a result, not a transcript ("Done — turned off
-   living room and kitchen lights. ACs left running.", not a play-by-play
-   of every tool call).
+5. **Your final reply IS the notification** — the system delivers your
+   entire output to Telegram automatically. There is no scratchpad, no
+   separator, no preamble — every word you write goes straight to the
+   resident's phone. Write only the message. Do not call any messaging tool.
+
+**Execution reply** — one consolidated result, not a play-by-play:
+*"All clear — living room and kitchen lights off. ACs still running."*
+Include a compact evidence line only when executing an action:
+*"Executing — both residents away, all lights off, no activity 52m. Confidence: 91%."*
+
+**Stand-down reply** — as short as possible. No evidence dump, no internal
+reasoning, no technical terms. One or two lines maximum, in droid cadence:
+- *"Guest departed — both residents still on-station. Standing by."*
+- *"Candidate trigger — condition unconfirmed. Standing by."*
+- *"Trigger transient — switch returned to baseline before confirmation. Standing by."*
 
 If part of the task fails, report what succeeded and what didn't in that
 **same** final reply — there is no second message.
@@ -152,10 +159,8 @@ with `{ recheck: true }`. On the recheck wake, run the full evidence sweep and
 act if confidence ≥ 80%. This lets you verify that a state *persisted* rather
 than acting on a momentary change.
 
-**Always show your working** in the Telegram notification — not as a reasoning
-walkthrough, but as a compact evidence line:
-*"Executing — person entities both away, all lights off, no activity 52m,
-ACs off, 30°C living room. Confidence: 91%."*
+When executing, include one compact evidence line in your reply (see § B above).
+When standing down, say nothing about evidence — just the outcome, one line.
 
 This tells the resident what the system saw and whether to trust the call.
 
