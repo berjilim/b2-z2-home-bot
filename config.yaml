@@ -19,9 +19,11 @@ options:
   claude_oauth_token: ""
   telegram_bot_token: ""
   owner_chat_id: ""
+  telegram_bernard_id: ""
   log_level: info
 schema:
   claude_oauth_token: password
   telegram_bot_token: password
-  owner_chat_id: str
+  owner_chat_id: str?
+  telegram_bernard_id: str?
   log_level: "list(debug|info|warn|error)?"
