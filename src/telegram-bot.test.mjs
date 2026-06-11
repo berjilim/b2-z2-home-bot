@@ -18,6 +18,15 @@ mkdirSync(memoryDir);
 writeFileSync(promptPath, "You are BeZa. Be terse.");
 writeFileSync(join(memoryDir, "home-entities.md"), "Use light.dining_smart_bulbs, not the relay.");
 
+// --- fake RBAC store ---
+const fakeRbac = {
+    getUser: (userId) => {
+        const users = { "111": { userId: "111", displayName: "Bernard", role: "owner" } };
+        return users[userId] ?? null;
+    },
+    redeemInvite: () => ({ ok: false, error: "invalid" }),
+};
+
 // --- fake runner: tracks open sessions and captured prompts ---
 let nextSessionId = 1;
 const opened = [];
@@ -78,7 +87,7 @@ const bot = createTelegramBot({
     memoryDir,
     mcpServers: [{ name: "home-assistant", type: "http", url: "http://fake/mcp" }],
     botToken: "fake-token",
-    allowedUsers: { "111": "Bernard" },
+    rbac: fakeRbac,
     sendTelegram,
     sendPlaceholder,
     editReply,
@@ -117,7 +126,9 @@ assert.strictEqual(edits.length, 2, "each placeholder gets edited in place with 
 assert.ok(edits.every((e) => e.chatId === "111"));
 assert.deepStrictEqual(edits.map((e) => e.messageId), placeholders.map((_, i) => i + 1), "edits target the placeholder message ids returned by sendPlaceholder");
 assert.match(edits[0].text, /^\[reply to:/);
-assert.strictEqual(sent.length, 0, "plain sendTelegram is bypassed in favor of placeholder+edit when both are wired up");
+// RBAC sends a rejection via sendTelegram to the unauthorized user (999); Bernard's replies go through placeholder+edit
+assert.strictEqual(sent.filter(s => s.chatId === "111").length, 0, "plain sendTelegram is bypassed for authorized user in favor of placeholder+edit");
+assert.ok(sent.every(s => s.chatId !== "111"), "no plain sendTelegram ever routed to Bernard");
 
 // --- idle-timeout recycling: a session sitting idle past idleTimeoutMs gets
 // closed and replaced with a fresh (re-primed) one on the next message ---
@@ -164,7 +175,7 @@ const recyclingBot = createTelegramBot({
     memoryDir,
     mcpServers: [],
     botToken: "fake-token",
-    allowedUsers: { "111": "Bernard" },
+    rbac: fakeRbac,
     sendTelegram: async () => true,
     pollIntervalMs: 5,
     idleTimeoutMs: 20, // tiny — second message arrives well past this
