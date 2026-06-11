@@ -16,12 +16,7 @@ fi
 export CLAUDE_CODE_OAUTH_TOKEN="$(jq -r '.claude_oauth_token' ${OPTIONS})"
 export TELEGRAM_BOT_TOKEN="$(jq -r '.telegram_bot_token' ${OPTIONS})"
 
-# Support both new (owner_chat_id) and legacy (telegram_bernard_id) field names.
-OWNER_ID="$(jq -r '.owner_chat_id // empty' ${OPTIONS})"
-if [ -z "${OWNER_ID}" ]; then
-    OWNER_ID="$(jq -r '.telegram_bernard_id // empty' ${OPTIONS})"
-fi
-export OWNER_CHAT_ID="${OWNER_ID}"
+export OWNER_CHAT_ID="$(jq -r '.owner_chat_id' ${OPTIONS})"
 
 # Diagnostic: confirm which bot identity this token resolves to, and the
 # exact length/shape of the configured values, WITHOUT logging the secrets

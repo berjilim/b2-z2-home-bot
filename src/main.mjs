@@ -25,8 +25,7 @@ const root = join(__dirname, "..");
 loadEnv(join(root, ".env"));
 delete process.env.ANTHROPIC_API_KEY; // force subscription auth via CLAUDE_CODE_OAUTH_TOKEN
 
-// Support both new (OWNER_CHAT_ID) and legacy (TELEGRAM_BERNARD_ID) env var names.
-const ownerChatId = process.env.OWNER_CHAT_ID || process.env.TELEGRAM_BERNARD_ID;
+const ownerChatId = process.env.OWNER_CHAT_ID;
 
 const required = [
     "CLAUDE_CODE_OAUTH_TOKEN",
