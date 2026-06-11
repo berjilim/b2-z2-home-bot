@@ -1,7 +1,7 @@
 // ============================================================
 // Telegram conversational transport (step 6)
 // ============================================================
-// Long-polls the Bot API for DMs from allowed users (Bernard & Zane),
+// Long-polls the Bot API for DMs from allowed users,
 // keeps one persistent ACP session per user (so the agent retains the
 // "reason -> clarify -> plan -> confirm -> arm" conversation across
 // messages), and relays replies back. Reuses the same runner the

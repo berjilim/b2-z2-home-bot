@@ -25,21 +25,23 @@ const root = join(__dirname, "..");
 loadEnv(join(root, ".env"));
 delete process.env.ANTHROPIC_API_KEY; // force subscription auth via CLAUDE_CODE_OAUTH_TOKEN
 
+// Support both new (OWNER_CHAT_ID) and legacy (TELEGRAM_BERNARD_ID) env var names.
+const ownerChatId = process.env.OWNER_CHAT_ID || process.env.TELEGRAM_BERNARD_ID;
+
 const required = [
     "CLAUDE_CODE_OAUTH_TOKEN",
     "TELEGRAM_BOT_TOKEN",
-    "TELEGRAM_BERNARD_ID",
     "HA_URL",
     "HA_TOKEN",
 ];
 const missing = required.filter((k) => !process.env[k]);
-if (missing.length) {
+if (missing.length || !ownerChatId) {
+    if (!ownerChatId) missing.push("OWNER_CHAT_ID");
     console.error(`[main] missing required env vars: ${missing.join(", ")}`);
     process.exit(1);
 }
 
-const allowedUsers = { [process.env.TELEGRAM_BERNARD_ID]: "Bernard" };
-if (process.env.TELEGRAM_ZANE_ID) allowedUsers[process.env.TELEGRAM_ZANE_ID] = "Zane";
+const allowedUsers = { [ownerChatId]: "Owner" };
 
 const systemPromptPath = join(root, "prompts", "guardian-system-prompt.md");
 // MEMORY_DIR points at the add-on's persistent /data/memory (seeded from
@@ -116,11 +118,11 @@ async function editTelegramMessage(chatId, messageId, text) {
     return data.ok;
 }
 
-// Fixed-chat sender for the listener/wake-glue path (notifications and
-// wake replies always go to Bernard for now — DM model, single guardian).
-const notifyBernard = makeTelegramSender({
+// Fixed-chat sender for the listener/wake-glue path — notifications and
+// wake replies go to the owner (single-user model until RBAC is wired in).
+const notifyOwner = makeTelegramSender({
     botToken: process.env.TELEGRAM_BOT_TOKEN,
-    chatId: process.env.TELEGRAM_BERNARD_ID,
+    chatId: ownerChatId,
     logger: console,
 });
 
@@ -136,7 +138,7 @@ const onWake = createWakeHandler({
     systemPromptPath,
     memoryDir,
     mcpServers,
-    sendTelegram: notifyBernard,
+    sendTelegram: notifyOwner,
     mode: "dontAsk",
     logger: console,
 });
@@ -145,7 +147,7 @@ const listener = new HAListener({
     haUrl: process.env.HA_URL,
     haToken: process.env.HA_TOKEN,
     ordersStore,
-    sendTelegram: notifyBernard,
+    sendTelegram: notifyOwner,
     onWake,
     logger: console,
 });

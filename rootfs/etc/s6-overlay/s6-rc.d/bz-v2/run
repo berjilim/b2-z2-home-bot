@@ -15,53 +15,39 @@ fi
 
 export CLAUDE_CODE_OAUTH_TOKEN="$(jq -r '.claude_oauth_token' ${OPTIONS})"
 export TELEGRAM_BOT_TOKEN="$(jq -r '.telegram_bot_token' ${OPTIONS})"
-export TELEGRAM_BERNARD_ID="$(jq -r '.telegram_bernard_id' ${OPTIONS})"
+
+# Support both new (owner_chat_id) and legacy (telegram_bernard_id) field names.
+OWNER_ID="$(jq -r '.owner_chat_id // empty' ${OPTIONS})"
+if [ -z "${OWNER_ID}" ]; then
+    OWNER_ID="$(jq -r '.telegram_bernard_id // empty' ${OPTIONS})"
+fi
+export OWNER_CHAT_ID="${OWNER_ID}"
 
 # Diagnostic: confirm which bot identity this token resolves to, and the
 # exact length/shape of the configured values, WITHOUT logging the secrets
 # themselves — helps catch config-save corruption without exposing tokens.
 BOT_IDENTITY="$(curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe" | jq -r '.result.username // .description // "unknown"')"
-echo "[$(date -Iseconds)] DEBUG: telegram_bot_token resolves to bot @${BOT_IDENTITY} (expect b2z2_home_bot)"
-echo "[$(date -Iseconds)] DEBUG: telegram_bot_token length=${#TELEGRAM_BOT_TOKEN} telegram_bernard_id=[${TELEGRAM_BERNARD_ID}] (length=${#TELEGRAM_BERNARD_ID})"
+echo "[$(date -Iseconds)] DEBUG: telegram_bot_token resolves to bot @${BOT_IDENTITY}"
+echo "[$(date -Iseconds)] DEBUG: telegram_bot_token length=${#TELEGRAM_BOT_TOKEN} owner_chat_id=[${OWNER_CHAT_ID}] (length=${#OWNER_CHAT_ID})"
 echo "[$(date -Iseconds)] DEBUG: claude_oauth_token length=${#CLAUDE_CODE_OAUTH_TOKEN} prefix=${CLAUDE_CODE_OAUTH_TOKEN:0:14}"
-
-ZANE_ID="$(jq -r '.telegram_zane_id // empty' ${OPTIONS})"
-if [ -n "${ZANE_ID}" ]; then
-    export TELEGRAM_ZANE_ID="${ZANE_ID}"
-fi
 
 # Source SUPERVISOR_TOKEN from s6-overlay environment if not already set
 if [ -z "${SUPERVISOR_TOKEN}" ] && [ -f /run/s6/container_environment/SUPERVISOR_TOKEN ]; then
     SUPERVISOR_TOKEN="$(cat /run/s6/container_environment/SUPERVISOR_TOKEN)"
 fi
 
-# Talk to HA over the internal Supervisor proxy — same box, no external
-# exposure, works identically whether Bernard is home or away (the only
-# leg that crosses the internet is Telegram <-> BZ-V2).
 export HA_URL="http://supervisor/core"
 export HA_TOKEN="${SUPERVISOR_TOKEN}"
 
-# Memory files (home-entities.md, home-deductions.md, etc.) need to survive
-# add-on updates — /data is the add-on's persistent volume (same place
-# options.json lives), but the image only ships a baked-in starting copy.
-# Seed /data/memory from the image on first boot (cp -n: never clobber
-# files the agent has already learned/written), then point the app there.
 mkdir -p /data/memory
 cp -n /app/memory/*.md /data/memory/ 2>/dev/null
 export MEMORY_DIR="/data/memory"
 
-# Same treatment for standing-orders/active.json — armed orders must survive
-# add-on updates (cp -n never clobbers orders BZ has already armed/modified).
 mkdir -p /data/standing-orders
 cp -n /app/standing-orders/active.json /data/standing-orders/ 2>/dev/null
-# SCHEMA.md is read-only (updated via image, never by BZ) — always copy
-# fresh so schema changes take effect without requiring a manual reset.
 cp /app/standing-orders/SCHEMA.md /data/standing-orders/SCHEMA.md
 export ORDERS_PATH="/data/standing-orders/active.json"
 
-# Set agent cwd to /data so BZ's file tool writes (memory/*.md,
-# standing-orders/active.json) go to the persistent volume, not /app
-# (which is inside the container image and wiped on every update).
 export AGENT_CWD="/data"
 
 exec node /app/src/main.mjs
