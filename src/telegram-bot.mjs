@@ -1,12 +1,15 @@
 // ============================================================
 // Telegram conversational transport (step 6)
 // ============================================================
-// Long-polls the Bot API for DMs from allowed users,
+// Long-polls the Bot API for DMs from authorized users,
 // keeps one persistent ACP session per user (so the agent retains the
 // "reason -> clarify -> plan -> confirm -> arm" conversation across
 // messages), and relays replies back. Reuses the same runner the
 // wake-glue uses, but via openSession/prompt — not the one-shot
 // runTurn — since a conversation needs continuity.
+//
+// Authorization is handled via RbacStore. Unknown users are rejected
+// unless they're redeeming a valid invite token (/start invite_TOKEN).
 //
 // Unlike the wake path, the agent here does NOT get a notification
 // contract: every reply is relayed straight back to the user that sent
@@ -23,12 +26,11 @@ import { join } from "node:path";
  * @param {string} opts.memoryDir
  * @param {Array}  opts.mcpServers - MCP server configs (e.g. Home Assistant)
  * @param {string} opts.botToken
- * @param {Record<string, string>} opts.allowedUsers - Telegram user id -> display name
+ * @param {import("./rbac.mjs").RbacStore} opts.rbac
+ * @param {string} [opts.botUsername] - Telegram @username of this bot (for invite links)
  * @param {(text: string, chatId: string|number) => Promise<boolean>} opts.sendTelegram
- * @param {(chatId: string|number, text: string) => Promise<number|null>} [opts.sendPlaceholder] -
- *   sends a "processing..." placeholder immediately on receipt, returns its message_id
- * @param {(chatId: string|number, messageId: number, text: string) => Promise<boolean>} [opts.editReply] -
- *   swaps the placeholder's content for the real reply once the turn completes
+ * @param {(chatId: string|number, text: string) => Promise<number|null>} [opts.sendPlaceholder]
+ * @param {(chatId: string|number, messageId: number, text: string) => Promise<boolean>} [opts.editReply]
  * @param {string} [opts.mode] - conversational session mode; default "default" (asks before acting)
  * @param {number} [opts.pollIntervalMs]
  * @param {{info: Function, error: Function}} [opts.logger]
@@ -40,18 +42,13 @@ export function createTelegramBot({
     memoryDir,
     mcpServers,
     botToken,
-    allowedUsers,
+    rbac,
+    botUsername,
     sendTelegram,
     sendPlaceholder,
     editReply,
     mode = "default",
     pollIntervalMs = 1000,
-    // How long a user's session can sit idle before we recycle it. Persistent
-    // sessions exist so multi-turn flows (reason -> clarify -> plan -> confirm
-    // -> arm) keep continuity — they do NOT need to remember a conversation
-    // from days/weeks ago. Left unbounded, history (and cost) grows forever;
-    // recycling on idle keeps cost flat and matches the "you wake up fresh —
-    // memory files are your continuity" design the wake path already follows.
     idleTimeoutMs = 4 * 60 * 60 * 1000,
     logger = console,
 }) {
@@ -76,22 +73,19 @@ export function createTelegramBot({
         return entry;
     }
 
-    async function handleMessage(userId, name, text) {
+    async function handleMessage(userId, user, text) {
         const entry = await getOrCreateSession(userId);
         const prompt = entry.primed
-            ? `${name}: ${text}`
-            : buildPrimingPrompt({ systemPromptPath, memoryDir, name, text });
+            ? `${user.displayName}: ${text}`
+            : buildPrimingPrompt({ systemPromptPath, memoryDir, user, text, botUsername });
         entry.primed = true;
         entry.lastActivity = Date.now();
 
-        // Fire the "processing..." placeholder immediately — turns can take
-        // 10-30s with HA tool calls in the loop, and there's otherwise no
-        // visual cue anything is happening until the reply lands.
         const placeholderId = sendPlaceholder ? await sendPlaceholder(userId, "🤖 Processing…") : null;
 
-        logger.info(`[telegram-bot] turn for ${name} (${userId})`);
+        logger.info(`[telegram-bot] turn for ${user.displayName} (${userId}, role: ${user.role})`);
         const result = await runner.prompt(entry.sessionId, prompt);
-        logger.info(`[telegram-bot] turn for ${name} done: stopReason=${result.stopReason} cost=${JSON.stringify(result.usage)}`);
+        logger.info(`[telegram-bot] turn for ${user.displayName} done: stopReason=${result.stopReason} cost=${JSON.stringify(result.usage)}`);
 
         const reply = result.text.trim() || "(no reply this turn)";
         if (placeholderId && editReply) {
@@ -110,21 +104,44 @@ export function createTelegramBot({
             const text = message?.text;
             if (!userId || !text) continue;
 
-            // TEMP DIAGNOSTIC: chat.id should equal from.id for DMs — if they
-            // differ, replies (sent to from.id) will fail with "chat not found"
-            // because the bot has no private conversation with that user id.
             logger.info(`[telegram-bot] DEBUG message from.id=${message?.from?.id} chat.id=${message?.chat?.id} chat.type=${message?.chat?.type}`);
 
-            const name = allowedUsers[userId];
-            if (!name) {
+            // Invite redemption: /start invite_TOKEN (Telegram deep-link)
+            const inviteMatch = text.match(/^\/start invite_([A-Za-z0-9]+)$/);
+            if (inviteMatch) {
+                const token = inviteMatch[1];
+                const firstName = message?.from?.first_name ?? "";
+                const lastName = message?.from?.last_name ?? "";
+                const displayName = [firstName, lastName].filter(Boolean).join(" ") || null;
+                const result = rbac.redeemInvite(token, userId, displayName);
+                if (result.ok) {
+                    logger.info(`[telegram-bot] invite redeemed by ${userId} → role: ${result.role}`);
+                    await sendTelegram(
+                        `Access granted — ${result.role} role. You can now give me orders, Commander.`,
+                        userId
+                    );
+                } else {
+                    logger.info(`[telegram-bot] invite redemption failed for ${userId}: ${result.error}`);
+                    await sendTelegram(
+                        `This invite link is ${result.error}. Request a new one from the owner.`,
+                        userId
+                    );
+                }
+                continue;
+            }
+
+            const user = rbac.getUser(userId);
+            if (!user) {
                 logger.error(`[telegram-bot] ignoring message from unauthorized user ${userId}`);
+                // Send one-time rejection so the user knows why nothing happens
+                await sendTelegram("Access denied. This unit is not authorized to respond to unknown contacts.", userId).catch(() => {});
                 continue;
             }
 
             try {
-                await handleMessage(userId, name, text);
+                await handleMessage(userId, user, text);
             } catch (e) {
-                logger.error(`[telegram-bot] turn for ${name} (${userId}) failed: ${e.message}`);
+                logger.error(`[telegram-bot] turn for ${user.displayName} (${userId}) failed: ${e.message}`);
                 await sendTelegram("Something went wrong on my end — try again in a moment.", userId).catch(() => {});
             }
         }
@@ -169,11 +186,16 @@ function readMemoryFiles(memoryDir) {
         .join("\n\n");
 }
 
-/** First turn of a fresh session: system prompt + memory + the user's opening message. */
-function buildPrimingPrompt({ systemPromptPath, memoryDir, name, text }) {
+/** First turn of a fresh session: system prompt + session context + memory + opening message. */
+function buildPrimingPrompt({ systemPromptPath, memoryDir, user, text, botUsername }) {
     const systemPrompt = readFileSync(systemPromptPath, "utf-8");
     const memory = readMemoryFiles(memoryDir);
-    return [systemPrompt, memory, `${name}: ${text}`].filter(Boolean).join("\n\n---\n\n");
+    const sessionCtx = [
+        "SESSION CONTEXT",
+        `User: ${user.displayName} [role: ${user.role}] (telegram_id: ${user.userId})`,
+        botUsername ? `Bot username: @${botUsername}` : null,
+    ].filter(Boolean).join("\n");
+    return [systemPrompt, sessionCtx, memory, `${user.displayName}: ${text}`].filter(Boolean).join("\n\n---\n\n");
 }
 
 /** Long-poll the Bot API for new updates (DMs only — no SDK dependency). */

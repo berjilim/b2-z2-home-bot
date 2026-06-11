@@ -17,7 +17,7 @@ import { join } from "node:path";
  * @param {string} opts.systemPromptPath
  * @param {string} opts.memoryDir
  * @param {Array}  opts.mcpServers - MCP server configs (e.g. Home Assistant) in ACP session/new format
- * @param {(text: string) => Promise<boolean>} opts.sendTelegram
+ * @param {(text: string, order?: object) => Promise<boolean>} opts.sendTelegram
  * @param {string} [opts.mode] - unattended session mode; default "dontAsk"
  * @param {{info: Function, error: Function}} [opts.logger]
  * @returns {(order: object, triggerContext: object) => Promise<void>} onWake handler for HAListener
@@ -42,11 +42,11 @@ export function createWakeHandler({
         const reply = result.text.trim();
         if (!reply) {
             logger.error(`[wake] order "${order.id}" produced no reply — sending fallback notification`);
-            await sendTelegram(`Something happened with "${order.description}", but I didn't get a clear result back. Worth checking on.`);
+            await sendTelegram(`Something happened with "${order.description}", but I didn't get a clear result back. Worth checking on.`, order);
             return;
         }
 
-        await sendTelegram(reply);
+        await sendTelegram(reply, order);
     };
 }
 

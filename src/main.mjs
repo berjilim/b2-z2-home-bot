@@ -17,7 +17,7 @@ import { OrdersStore } from "./orders.mjs";
 import { HAListener } from "./listener.mjs";
 import { createWakeHandler } from "./wake-glue.mjs";
 import { createTelegramBot } from "./telegram-bot.mjs";
-import { makeTelegramSender } from "./telegram.mjs";
+import { RbacStore } from "./rbac.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
@@ -40,8 +40,6 @@ if (missing.length || !ownerChatId) {
     process.exit(1);
 }
 
-const allowedUsers = { [ownerChatId]: "Owner" };
-
 const systemPromptPath = join(root, "prompts", "guardian-system-prompt.md");
 // MEMORY_DIR points at the add-on's persistent /data/memory (seeded from
 // the image's memory/ on first boot — see rootfs run script) so learned
@@ -55,6 +53,16 @@ const ordersPath = process.env.ORDERS_PATH || join(root, "standing-orders", "act
 // (memory/home-deductions.md, standing-orders/active.json etc.) land in
 // /data/... and survive add-on updates. Falls back to /app for local dev.
 const agentCwd = process.env.AGENT_CWD || root;
+
+// RBAC_DIR holds users.json and invites.json on the persistent volume.
+// Seeded from /app/rbac/ on first boot (cp -n in run script).
+const rbacDir = process.env.RBAC_DIR || join(root, "rbac");
+const rbac = new RbacStore({
+    usersPath: join(rbacDir, "users.json"),
+    invitesPath: join(rbacDir, "invites.json"),
+});
+rbac.seedOwner(ownerChatId);
+
 // Bundle the `hass-mcp` package as a
 // stdio MCP server — full REST/WebSocket entity access via HA_URL/HA_TOKEN,
 // not the Assist-exposure-scoped surface HA's built-in MCP Server integration
@@ -86,12 +94,7 @@ async function sendTelegramTo(text, chatId) {
     return data.ok;
 }
 
-// "Processing..." placeholder + edit-in-place pattern: send a placeholder the
-// instant a message lands (so there's an immediate visual cue that something
-// is happening — turns can take 10-30s with HA tool calls in the loop), then
-// swap its content for the real reply once the turn completes. Telegram
-// animates the text change client-side — feels far more polished than a
-// typing bubble that auto-expires after 5s on a long-running turn.
+// "Processing..." placeholder + edit-in-place pattern.
 async function sendTelegramPlaceholder(chatId, text) {
     const res = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: "POST",
@@ -117,13 +120,12 @@ async function editTelegramMessage(chatId, messageId, text) {
     return data.ok;
 }
 
-// Fixed-chat sender for the listener/wake-glue path — notifications and
-// wake replies go to the owner (single-user model until RBAC is wired in).
-const notifyOwner = makeTelegramSender({
-    botToken: process.env.TELEGRAM_BOT_TOKEN,
-    chatId: ownerChatId,
-    logger: console,
-});
+// Notification router for listener/wake-glue — sends to the user who armed
+// the order (order.created_by), falling back to owner if missing or expired.
+function notifyForOrder(text, order) {
+    const chatId = rbac.getChatIdForOrder(order, ownerChatId);
+    return sendTelegramTo(text, chatId);
+}
 
 const binPath = join(root, "node_modules", "@agentclientprotocol", "claude-agent-acp", "dist", "index.js");
 const runner = new ClaudeAgentRunner({ binPath, logger: console });
@@ -137,7 +139,7 @@ const onWake = createWakeHandler({
     systemPromptPath,
     memoryDir,
     mcpServers,
-    sendTelegram: notifyOwner,
+    sendTelegram: notifyForOrder,
     mode: "dontAsk",
     logger: console,
 });
@@ -146,7 +148,7 @@ const listener = new HAListener({
     haUrl: process.env.HA_URL,
     haToken: process.env.HA_TOKEN,
     ordersStore,
-    sendTelegram: notifyOwner,
+    sendTelegram: notifyForOrder,
     onWake,
     logger: console,
 });
@@ -158,7 +160,8 @@ const bot = createTelegramBot({
     memoryDir,
     mcpServers,
     botToken: process.env.TELEGRAM_BOT_TOKEN,
-    allowedUsers,
+    rbac,
+    botUsername: process.env.TELEGRAM_BOT_USERNAME,
     sendTelegram: sendTelegramTo,
     sendPlaceholder: sendTelegramPlaceholder,
     editReply: editTelegramMessage,

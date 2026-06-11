@@ -22,6 +22,7 @@ export OWNER_CHAT_ID="$(jq -r '.owner_chat_id' ${OPTIONS})"
 # exact length/shape of the configured values, WITHOUT logging the secrets
 # themselves — helps catch config-save corruption without exposing tokens.
 BOT_IDENTITY="$(curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe" | jq -r '.result.username // .description // "unknown"')"
+export TELEGRAM_BOT_USERNAME="${BOT_IDENTITY}"
 echo "[$(date -Iseconds)] DEBUG: telegram_bot_token resolves to bot @${BOT_IDENTITY}"
 echo "[$(date -Iseconds)] DEBUG: telegram_bot_token length=${#TELEGRAM_BOT_TOKEN} owner_chat_id=[${OWNER_CHAT_ID}] (length=${#OWNER_CHAT_ID})"
 echo "[$(date -Iseconds)] DEBUG: claude_oauth_token length=${#CLAUDE_CODE_OAUTH_TOKEN} prefix=${CLAUDE_CODE_OAUTH_TOKEN:0:14}"
@@ -37,6 +38,11 @@ export HA_TOKEN="${SUPERVISOR_TOKEN}"
 mkdir -p /data/memory
 cp -n /app/memory/*.md /data/memory/ 2>/dev/null
 export MEMORY_DIR="/data/memory"
+
+mkdir -p /data/rbac
+cp -n /app/rbac/users.json /data/rbac/ 2>/dev/null
+cp -n /app/rbac/invites.json /data/rbac/ 2>/dev/null
+export RBAC_DIR="/data/rbac"
 
 mkdir -p /data/standing-orders
 cp -n /app/standing-orders/active.json /data/standing-orders/ 2>/dev/null

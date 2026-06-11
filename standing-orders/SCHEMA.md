@@ -29,6 +29,7 @@ with `"status": "armed"` are watched by the listener daemon (see step 3).
   "notify_on_complete": "Message to send when the order is fully fulfilled",
   "re_arm": false,
   "expires_at": "2026-06-07T12:00:00+08:00",
+  "created_by": "557856595",
   "status": "armed"
 }
 ```
@@ -40,6 +41,8 @@ with `"status": "armed"` are watched by the listener daemon (see step 3).
 **`confidence`** — Your honest assessment of the implementation quality. Always include a brief reason so the user understands the limitation. E.g. `"medium — person entities reliable for known residents but blind to guests"`.
 
 **`verify_condition`** — Present when candidate trigger(s) alone aren't sufficient to confirm the condition (compound presence, multi-signal logic). When you wake and find this field, run a Bayesian evidence sweep before acting (see system prompt). If confidence is below threshold after the sweep, stand down and log.
+
+**`created_by`** — Telegram user ID of the resident who armed this order. Wake notifications and direct alerts are routed to this user's chat. Always set this when arming; use the `telegram_id` from the SESSION CONTEXT header.
 
 **`re_arm`** (default `false`) — If `true`, set `status` back to `"armed"` after executing. Use for recurring orders ("every time nobody's home…", "whenever I leave…"). If `false`, order goes to `"complete"` after the first execution.
 

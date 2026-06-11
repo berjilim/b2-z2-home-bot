@@ -36,7 +36,7 @@ export class HAListener {
      * @param {string} opts.haUrl - Home Assistant base URL (http(s)://...)
      * @param {string} opts.haToken - long-lived access token
      * @param {import("./orders.mjs").OrdersStore} opts.ordersStore
-     * @param {(text: string) => Promise<boolean>} opts.sendTelegram
+     * @param {(text: string, order?: object) => Promise<boolean>} opts.sendTelegram
      * @param {(order: object, ctx: object) => Promise<void>} opts.onWake
      * @param {{info: Function, error: Function}} [opts.logger]
      */
@@ -193,7 +193,7 @@ export class HAListener {
         if (order.action_type === "notify") {
             const text = order.notify_on_trigger ?? `Standing order triggered: ${order.description}`;
             this.#logger.info(`[notify] sending direct Telegram for order "${order.id}"`);
-            const ok = await this.#sendTelegram(text);
+            const ok = await this.#sendTelegram(text, order);
             if (ok) this.#logger.info("[notify] delivered — 0 tokens used");
             return;
         }
