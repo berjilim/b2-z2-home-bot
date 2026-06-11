@@ -2,7 +2,7 @@ name: BZ-V2 Home Guardian
 description: Always-on AI home guardian over Telegram — runs as a Home Assistant Supervisor add-on, powered by Claude.
 slug: bz-v2
 url: https://github.com/berjilim/b2-z2-home-bot
-version: 0.1.30
+version: 0.1.31
 init: false
 arch:
   - aarch64
