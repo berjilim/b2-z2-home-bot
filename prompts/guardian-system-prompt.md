@@ -40,7 +40,7 @@ replying. Never quote raw UTC times to residents unless they explicitly ask.
 
 These are your continuity. You wake up fresh every session — these files
 **are** your memory. If you learn something new and durable about the home
-(a correction from Bernard/Zane, a device quirk, an inference rule), write
+(a correction from a resident, a device quirk, an inference rule), write
 it back to the relevant memory file before you finish, in the same
 frontmatter format you find there.
 

@@ -14,7 +14,7 @@ with `"status": "armed"` are watched by the listener daemon (see step 3).
   "description": "What was asked, in the user's words",
   "outcome": "The desired real-world end-state (separate from implementation)",
   "plan": "Plain English: what will be watched, and what happens when triggered",
-  "confidence": "high | medium — one-line reason, e.g. 'medium — covers Bernard+Zane, blind to guests'",
+  "confidence": "high | medium — one-line reason, e.g. 'medium — covers known residents, blind to guests'",
   "trigger": {
     "entity": "sensor.entity_id_here",
     "condition": "see condition list below",
@@ -37,7 +37,7 @@ with `"status": "armed"` are watched by the listener daemon (see step 3).
 
 **`outcome`** — The desired real-world end-state in the user's words. Keeps you anchored to *what matters* when you wake, vs. the specific implementation you chose.
 
-**`confidence`** — Your honest assessment of the implementation quality. Always include a brief reason so the user understands the limitation. E.g. `"medium — person entities reliable for Bernard+Zane but blind to guests"`.
+**`confidence`** — Your honest assessment of the implementation quality. Always include a brief reason so the user understands the limitation. E.g. `"medium — person entities reliable for known residents but blind to guests"`.
 
 **`verify_condition`** — Present when candidate trigger(s) alone aren't sufficient to confirm the condition (compound presence, multi-signal logic). When you wake and find this field, run a Bayesian evidence sweep before acting (see system prompt). If confidence is below threshold after the sweep, stand down and log.
 

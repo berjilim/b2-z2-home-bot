@@ -56,7 +56,7 @@ const ordersPath = process.env.ORDERS_PATH || join(root, "standing-orders", "act
 // (memory/home-deductions.md, standing-orders/active.json etc.) land in
 // /data/... and survive add-on updates. Falls back to /app for local dev.
 const agentCwd = process.env.AGENT_CWD || root;
-// Bundle the `hass-mcp` package (same one Bernard's Claude Code uses) as a
+// Bundle the `hass-mcp` package as a
 // stdio MCP server — full REST/WebSocket entity access via HA_URL/HA_TOKEN,
 // not the Assist-exposure-scoped surface HA's built-in MCP Server integration
 // offers. Runs as a subprocess of the agent session over the internal
