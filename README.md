@@ -1,34 +1,44 @@
-# BeZa Home Bot
+# BZ-V2 Home Guardian
 
-A standalone, always-on home guardian for Bernard & Zane — lives as a Home
-Assistant Supervisor add-on (so it never depends on a laptop being awake),
-talks over Telegram, and runs on the Claude Agent SDK via ACP
-(`@agentclientprotocol/claude-agent-acp`).
+An always-on AI home guardian that runs as a Home Assistant Supervisor add-on and talks to you over Telegram. Powered by Claude via the official ACP adapter.
 
-This is **not** an OpenClaw agent. It's a lean, self-contained process:
-auth, sessions, memory, and triggers are all handled here directly — no
-gateway, no orchestration layer.
+## What it does
 
-## Why this exists
+- **Standing orders** — give it natural-language instructions like *"tell me when someone enters the master toilet"* or *"turn everything off when nobody's home for 30 minutes"*
+- **Always watching** — runs on your HA box, not your laptop; never misses a trigger
+- **Zero-token notify path** — simple alerts fire instantly without waking the AI
+- **Bayesian verification** — compound conditions (nobody home, everyone asleep) are checked against multiple signals before acting
+- **Persistent memory** — learns your home's entity quirks and inference rules; survives add-on updates
 
-The original BeZa runs as an OpenClaw agent on a MacBook. That's fine for
-reasoning and chat, but its listener daemon dies whenever the laptop sleeps
-or shuts down — a real gap for a "guardian" that's supposed to watch the
-home 24/7. This project ports BeZa's actual logic (standing orders, trigger
-listener, zero-token notify path) onto infrastructure that's always on:
-the same box that runs Home Assistant.
+## Requirements
 
-Packaging/hosting pattern is adapted from
-[`ha-copilot-telegram-bot`](https://github.com/layman-smart-home-people/ha-copilot-telegram-bot)
-(Sam Thng) — Dockerfile, s6-overlay service, HA Supervisor add-on structure —
-with the agent swapped from GitHub Copilot CLI to Claude (via the official
-ACP adapter on top of the Claude Agent SDK).
+- Home Assistant OS or Supervised
+- A Telegram account and bot token (via [@BotFather](https://t.me/BotFather))
+- A Claude subscription token (`claude setup-token` from the Claude CLI)
 
-## Status
+## Installation
 
-🚧 Scaffolding — see `PLAN.md` for the build order.
+1. In Home Assistant, go to **Settings → Add-ons → Add-on Store**
+2. Open **⋮ → Repositories** and add:
+   ```
+   https://github.com/berjilim/b2-z2-home-bot
+   ```
+3. Install **BZ-V2 Home Guardian**
+4. In the **Configuration** tab, set:
+   - `claude_oauth_token` — your Claude subscription token
+   - `telegram_bot_token` — your BotFather token
+   - `owner_chat_id` — your Telegram user ID (get it from [@userinfobot](https://t.me/userinfobot))
+5. **Start** the add-on and send your bot a message
+
+## Usage
+
+Just message your bot naturally. Examples:
+
+- *"Notify me when someone enters the master toilet"*
+- *"Turn off all lights and ACs when nobody's home for 30 minutes"*
+- *"What's the current state of the living room?"*
+- *"List my standing orders"*
 
 ## Auth
 
-Uses a Claude subscription token (`claude setup-token`), not a metered API
-key — kept in a local `.env` file, never committed (see `.gitignore`).
+Uses a Claude subscription token, not a metered API key — no per-token cost for conversations.
