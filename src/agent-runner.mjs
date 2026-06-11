@@ -95,12 +95,22 @@ export class ClaudeAgentRunner {
      * @returns {Promise<{ text: string, stopReason: string, usage: object }>}
      */
     async prompt(sessionId, text) {
-        let reply = "";
+        // Track only the last text block — reset whenever Claude switches to tool
+        // work so pre-tool narration ("Reading active orders...") is discarded and
+        // only the final post-tool reply reaches Telegram.
+        let currentBlock = "";
+        let lastBlock = "";
         const onUpdate = (params) => {
             if (params.sessionId !== sessionId) return;
             const update = params.update;
-            if (update?.sessionUpdate === "agent_message_chunk" && update.content?.type === "text") {
-                reply += update.content.text;
+            if (update?.sessionUpdate !== "agent_message_chunk") return;
+            if (update.content?.type === "text") {
+                currentBlock += update.content.text;
+            } else {
+                // tool_use, tool_result, thinking, etc. — Claude is doing work;
+                // checkpoint the current text and start fresh for the next block.
+                if (currentBlock.trim()) lastBlock = currentBlock;
+                currentBlock = "";
             }
         };
 
@@ -110,6 +120,7 @@ export class ClaudeAgentRunner {
                 sessionId,
                 prompt: [{ type: "text", text }],
             }, 10 * 60 * 1000);
+            const reply = currentBlock.trim() ? currentBlock : lastBlock;
             return { text: reply, stopReason: result.stopReason, usage: result.usage };
         } finally {
             this.#notificationHandlers.delete(onUpdate);
