@@ -12,10 +12,11 @@ import { join } from "node:path";
 import assert from "node:assert";
 
 const dir = mkdtempSync(join(tmpdir(), "beza-telegram-bot-"));
-const promptPath = join(dir, "system-prompt.md");
+const promptsDir = join(dir, "prompts");
 const memoryDir = join(dir, "memory");
+mkdirSync(promptsDir);
 mkdirSync(memoryDir);
-writeFileSync(promptPath, "You are BeZa. Be terse.");
+writeFileSync(join(promptsDir, "system-core.md"), "You are BeZa. Be terse.");
 writeFileSync(join(memoryDir, "home-entities.md"), "Use light.dining_smart_bulbs, not the relay.");
 
 // --- fake RBAC store ---
@@ -83,7 +84,7 @@ globalThis.fetch = async (url) => {
 const bot = createTelegramBot({
     runner: fakeRunner,
     projectRoot: dir,
-    systemPromptPath: promptPath,
+    promptsDir,
     memoryDir,
     mcpServers: [{ name: "home-assistant", type: "http", url: "http://fake/mcp" }],
     botToken: "fake-token",
@@ -171,7 +172,7 @@ globalThis.fetch = async (url) => {
 const recyclingBot = createTelegramBot({
     runner: recyclingRunner,
     projectRoot: dir,
-    systemPromptPath: promptPath,
+    promptsDir,
     memoryDir,
     mcpServers: [],
     botToken: "fake-token",

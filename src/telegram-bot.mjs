@@ -17,12 +17,13 @@
 
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { buildSystemPrompt } from "./prompts.mjs";
 
 /**
  * @param {object} opts
  * @param {import("./agent-runner.mjs").ClaudeAgentRunner} opts.runner
  * @param {string} opts.projectRoot - cwd for ACP sessions (NOT the operator's ~/.claude)
- * @param {string} opts.systemPromptPath
+ * @param {string} opts.promptsDir - dir containing persona.md, system-core.md, custom-rules.md
  * @param {string} opts.memoryDir
  * @param {Array}  opts.mcpServers - MCP server configs (e.g. Home Assistant)
  * @param {string} opts.botToken
@@ -38,7 +39,7 @@ import { join } from "node:path";
 export function createTelegramBot({
     runner,
     projectRoot,
-    systemPromptPath,
+    promptsDir,
     memoryDir,
     mcpServers,
     botToken,
@@ -77,7 +78,7 @@ export function createTelegramBot({
         const entry = await getOrCreateSession(userId);
         const prompt = entry.primed
             ? `${user.displayName}: ${text}`
-            : buildPrimingPrompt({ systemPromptPath, memoryDir, user, text, botUsername });
+            : buildPrimingPrompt({ promptsDir, memoryDir, user, text, botUsername });
         entry.primed = true;
         entry.lastActivity = Date.now();
 
@@ -187,8 +188,8 @@ function readMemoryFiles(memoryDir) {
 }
 
 /** First turn of a fresh session: system prompt + session context + memory + opening message. */
-function buildPrimingPrompt({ systemPromptPath, memoryDir, user, text, botUsername }) {
-    const systemPrompt = readFileSync(systemPromptPath, "utf-8");
+function buildPrimingPrompt({ promptsDir, memoryDir, user, text, botUsername }) {
+    const systemPrompt = buildSystemPrompt(promptsDir);
     const memory = readMemoryFiles(memoryDir);
     const sessionCtx = [
         "SESSION CONTEXT",

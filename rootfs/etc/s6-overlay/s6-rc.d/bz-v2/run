@@ -39,6 +39,14 @@ mkdir -p /data/memory
 cp -n /app/memory/*.md /data/memory/ 2>/dev/null
 export MEMORY_DIR="/data/memory"
 
+mkdir -p /data/prompts
+# persona and custom-rules are user-owned — cp -n so B2's edits survive updates
+cp -n /app/prompts/persona-default.md /data/prompts/persona.md 2>/dev/null
+cp -n /app/prompts/custom-rules-default.md /data/prompts/custom-rules.md 2>/dev/null
+# system-core is always fresh from the image so code-level fixes take effect
+cp /app/prompts/system-core.md /data/prompts/system-core.md
+export PROMPTS_DIR="/data/prompts"
+
 mkdir -p /data/rbac
 cp -n /app/rbac/users.json /data/rbac/ 2>/dev/null
 cp -n /app/rbac/invites.json /data/rbac/ 2>/dev/null

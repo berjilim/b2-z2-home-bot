@@ -10,10 +10,11 @@ import { join } from "node:path";
 import assert from "node:assert";
 
 const dir = mkdtempSync(join(tmpdir(), "beza-wake-"));
-const promptPath = join(dir, "system-prompt.md");
+const promptsDir = join(dir, "prompts");
 const memoryDir = join(dir, "memory");
+mkdirSync(promptsDir);
 mkdirSync(memoryDir);
-writeFileSync(promptPath, "You are BeZa. Be terse.");
+writeFileSync(join(promptsDir, "system-core.md"), "You are BeZa. Be terse.");
 writeFileSync(join(memoryDir, "home-entities.md"), "Use light.dining_smart_bulbs, not the relay.");
 
 const order = {
@@ -35,7 +36,7 @@ const sent = [];
 const onWake = createWakeHandler({
     runner: fakeRunner,
     projectRoot: dir,
-    systemPromptPath: promptPath,
+    promptsDir,
     memoryDir,
     mcpServers: [{ name: "home-assistant", type: "http", url: "http://fake/mcp" }],
     sendTelegram: async (text) => { sent.push(text); return true; },
@@ -60,7 +61,7 @@ assert.deepStrictEqual(sent, ["Done — ran the exhaust fan for 10 minutes. Toil
 const silentRunner = { runTurn: async () => ({ text: "   ", stopReason: "end_turn", usage: {} }) };
 const sent2 = [];
 const onWake2 = createWakeHandler({
-    runner: silentRunner, projectRoot: dir, systemPromptPath: promptPath, memoryDir, mcpServers: [],
+    runner: silentRunner, projectRoot: dir, promptsDir, memoryDir, mcpServers: [],
     sendTelegram: async (text) => { sent2.push(text); return true; },
     logger: { info: () => {}, error: () => {} },
 });

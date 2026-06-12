@@ -40,10 +40,10 @@ if (missing.length || !ownerChatId) {
     process.exit(1);
 }
 
-const systemPromptPath = join(root, "prompts", "guardian-system-prompt.md");
-// MEMORY_DIR points at the add-on's persistent /data/memory (seeded from
-// the image's memory/ on first boot — see rootfs run script) so learned
-// rules survive updates. Falls back to the repo dir for local dev.
+// PROMPTS_DIR points at /data/prompts on the Supervisor — contains persona.md,
+// system-core.md, and custom-rules.md. persona and custom-rules are writable
+// by B2; system-core is seeded fresh from the image on every boot.
+const promptsDir = process.env.PROMPTS_DIR || join(root, "prompts");
 const memoryDir = process.env.MEMORY_DIR || join(root, "memory");
 // ORDERS_PATH points at /data/standing-orders/active.json (persistent volume)
 // so armed orders survive add-on updates — same fix as MEMORY_DIR above.
@@ -136,7 +136,7 @@ const ordersStore = new OrdersStore(ordersPath);
 const onWake = createWakeHandler({
     runner,
     projectRoot: agentCwd,
-    systemPromptPath,
+    promptsDir,
     memoryDir,
     mcpServers,
     sendTelegram: notifyForOrder,
@@ -157,7 +157,7 @@ const listener = new HAListener({
 const bot = createTelegramBot({
     runner,
     projectRoot: agentCwd,
-    systemPromptPath,
+    promptsDir,
     memoryDir,
     mcpServers,
     botToken: process.env.TELEGRAM_BOT_TOKEN,

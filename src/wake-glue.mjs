@@ -9,12 +9,13 @@
 
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { buildSystemPrompt } from "./prompts.mjs";
 
 /**
  * @param {object} opts
  * @param {import("./agent-runner.mjs").ClaudeAgentRunner} opts.runner
  * @param {string} opts.projectRoot - cwd for the ACP session (NOT the operator's ~/.claude)
- * @param {string} opts.systemPromptPath
+ * @param {string} opts.promptsDir - dir containing persona.md, system-core.md, custom-rules.md
  * @param {string} opts.memoryDir
  * @param {Array}  opts.mcpServers - MCP server configs (e.g. Home Assistant) in ACP session/new format
  * @param {(text: string, order?: object) => Promise<boolean>} opts.sendTelegram
@@ -26,7 +27,7 @@ import { join } from "node:path";
 export function createWakeHandler({
     runner,
     projectRoot,
-    systemPromptPath,
+    promptsDir,
     memoryDir,
     mcpServers,
     sendTelegram,
@@ -36,7 +37,7 @@ export function createWakeHandler({
 }) {
     return async function onWake(order, triggerContext) {
         const recipient = getRecipient ? getRecipient(order) : null;
-        const prompt = buildWakePrompt({ systemPromptPath, memoryDir, order, triggerContext, recipient });
+        const prompt = buildWakePrompt({ promptsDir, memoryDir, order, triggerContext, recipient });
 
         logger.info(`[wake] running scoped turn for order "${order.id}"`);
         const result = await runner.runTurn({ cwd: projectRoot, mode, mcpServers, prompt });
@@ -66,8 +67,8 @@ function readMemoryFiles(memoryDir) {
         .join("\n\n");
 }
 
-function buildWakePrompt({ systemPromptPath, memoryDir, order, triggerContext, recipient }) {
-    const systemPrompt = readFileSync(systemPromptPath, "utf-8");
+function buildWakePrompt({ promptsDir, memoryDir, order, triggerContext, recipient }) {
+    const systemPrompt = buildSystemPrompt(promptsDir);
     const memory = readMemoryFiles(memoryDir);
 
     const recipientCtx = recipient
