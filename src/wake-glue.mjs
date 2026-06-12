@@ -18,6 +18,7 @@ import { join } from "node:path";
  * @param {string} opts.memoryDir
  * @param {Array}  opts.mcpServers - MCP server configs (e.g. Home Assistant) in ACP session/new format
  * @param {(text: string, order?: object) => Promise<boolean>} opts.sendTelegram
+ * @param {(order: object) => {displayName: string, userId: string}|null} [opts.getRecipient]
  * @param {string} [opts.mode] - unattended session mode; default "dontAsk"
  * @param {{info: Function, error: Function}} [opts.logger]
  * @returns {(order: object, triggerContext: object) => Promise<void>} onWake handler for HAListener
@@ -29,11 +30,13 @@ export function createWakeHandler({
     memoryDir,
     mcpServers,
     sendTelegram,
+    getRecipient,
     mode = "dontAsk",
     logger = console,
 }) {
     return async function onWake(order, triggerContext) {
-        const prompt = buildWakePrompt({ systemPromptPath, memoryDir, order, triggerContext });
+        const recipient = getRecipient ? getRecipient(order) : null;
+        const prompt = buildWakePrompt({ systemPromptPath, memoryDir, order, triggerContext, recipient });
 
         logger.info(`[wake] running scoped turn for order "${order.id}"`);
         const result = await runner.runTurn({ cwd: projectRoot, mode, mcpServers, prompt });
@@ -63,9 +66,17 @@ function readMemoryFiles(memoryDir) {
         .join("\n\n");
 }
 
-function buildWakePrompt({ systemPromptPath, memoryDir, order, triggerContext }) {
+function buildWakePrompt({ systemPromptPath, memoryDir, order, triggerContext, recipient }) {
     const systemPrompt = readFileSync(systemPromptPath, "utf-8");
     const memory = readMemoryFiles(memoryDir);
+
+    const recipientCtx = recipient
+        ? [
+            "NOTIFICATION RECIPIENT",
+            `Name: ${recipient.displayName} (telegram_id: ${recipient.userId})`,
+            `Address them as "Commander". Use "you/your" when referring to them. Use third-person names for all other residents.`,
+          ].join("\n")
+        : null;
 
     const trigger = [
         "BEZA TRIGGER FIRED",
@@ -75,5 +86,5 @@ function buildWakePrompt({ systemPromptPath, memoryDir, order, triggerContext })
         `trigger_context: ${JSON.stringify(triggerContext)}`,
     ].join("\n");
 
-    return [systemPrompt, memory, trigger].filter(Boolean).join("\n\n---\n\n");
+    return [systemPrompt, memory, recipientCtx, trigger].filter(Boolean).join("\n\n---\n\n");
 }

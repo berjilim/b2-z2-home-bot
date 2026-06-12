@@ -140,6 +140,7 @@ const onWake = createWakeHandler({
     memoryDir,
     mcpServers,
     sendTelegram: notifyForOrder,
+    getRecipient: (order) => rbac.getUser(rbac.getChatIdForOrder(order, ownerChatId)),
     mode: "dontAsk",
     logger: console,
 });
