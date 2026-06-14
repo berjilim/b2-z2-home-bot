@@ -80,6 +80,10 @@ export class ClaudeAgentRunner {
      * @returns {Promise<string>} sessionId
      */
     async openSession({ cwd, mode = "default", mcpServers = [] }) {
+        if (!this.alive) {
+            this.#logger.info("[acp] process not running, restarting…");
+            await this.start();
+        }
         const session = await this.#send("session/new", { cwd, mcpServers });
         const sessionId = session.sessionId;
         if (mode !== (session.modes?.currentModeId ?? "default")) {
