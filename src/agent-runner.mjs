@@ -212,6 +212,8 @@ export class ClaudeAgentRunner {
             if (msg.method === "elicitation/create" || msg.method === "fs/read_text_file" || msg.method === "fs/write_text_file") {
                 // Not expected during unattended wakes (no human, no editor-style fs proxy needed —
                 // the agent's own filesystem tools handle file I/O against `cwd`). Reject cleanly.
+                const safeParams = { ...msg.params, content: msg.params?.content ? `<${msg.params.content.length} chars>` : undefined };
+                this.#logger.info(`[acp] rejecting unsupported request: ${msg.method} params=${JSON.stringify(safeParams)}`);
                 this.#process.stdin.write(JSON.stringify({
                     jsonrpc: "2.0", id: msg.id,
                     error: { code: -32601, message: "Not supported in unattended wake mode" },
