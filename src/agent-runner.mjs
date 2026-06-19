@@ -107,6 +107,23 @@ export class ClaudeAgentRunner {
         const onUpdate = (params) => {
             if (params.sessionId !== sessionId) return;
             const update = params.update;
+            // Log failed tool calls (e.g. Write/Edit) — these errors were previously
+            // silently discarded, leaving zero visibility into why a file write failed.
+            if (update?.sessionUpdate === "tool_call" || update?.sessionUpdate === "tool_call_update") {
+                if (update.status === "failed") {
+                    const safeInput = update.rawInput
+                        ? Object.fromEntries(Object.entries(update.rawInput).map(([k, v]) =>
+                            [k, typeof v === "string" ? `<${v.length} chars>` : v]))
+                        : undefined;
+                    this.#logger.error(`[acp] tool call failed: ${JSON.stringify({
+                        title: update.title,
+                        kind: update.kind,
+                        status: update.status,
+                        error: update.error,
+                        rawInput: safeInput,
+                    })}`);
+                }
+            }
             if (update?.sessionUpdate !== "agent_message_chunk") return;
             if (update.content?.type === "text") {
                 currentBlock += update.content.text;
