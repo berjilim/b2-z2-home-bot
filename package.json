@@ -8,7 +8,7 @@
     "start": "node src/main.mjs",
     "spike": "node spike/acp-roundtrip.mjs",
     "runner-check": "node spike/runner-check.mjs",
-    "test": "node src/orders.test.mjs && node src/triggers.test.mjs && node src/listener.test.mjs && node src/wake-glue.test.mjs && node src/telegram-bot.test.mjs"
+    "test": "node src/orders.test.mjs && node src/triggers.test.mjs && node src/listener.test.mjs && node src/wake-glue.test.mjs && node src/telegram-bot.test.mjs && node src/agent-runner.test.mjs"
   },
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "^0.42.0",

@@ -26,6 +26,23 @@ export class ClaudeAgentRunner {
     #nextId = 1;
     #pending = new Map();
 
+    // FIFO queue gating the heavy part of each turn — the `session/prompt`
+    // JSON-RPC call. Each `session/prompt` causes the ACP package to spawn
+    // its OWN underlying "Claude Agent" OS subprocess to actually do the
+    // work for that session (separate from `this.#process`, which is just
+    // the lightweight ACP shim). With no concurrency control, multiple HA
+    // state_changed events (via wake-glue) or a wake racing a live Telegram
+    // conversation can trigger overlapping `prompt()` calls, each spawning
+    // its own heavy subprocess — on memory-constrained hardware (HA Yellow)
+    // this is what was driving the OOM killer to SIGKILL the agent process.
+    // Serializing here ensures only one such subprocess is ever alive at a
+    // time, system-wide, regardless of how many callers invoke
+    // `runTurn`/`prompt` concurrently. `openSession`/`closeSession`
+    // (session/new, session/cancel) stay outside the queue — they're cheap
+    // management calls against the already-running shim, not new subprocess
+    // spawns, so gating them would only add needless latency.
+    #queue = Promise.resolve();
+
     constructor({ binPath, env = process.env, logger = console }) {
         this.#binPath = binPath;
         this.#env = env;
@@ -69,6 +86,17 @@ export class ClaudeAgentRunner {
     }
 
     /**
+     * Test-only seam: inject a fake child-process-like object (stdin/stdout
+     * EventEmitter pair) in place of a real `spawn()`'d ACP shim, so unit
+     * tests can drive the JSON-RPC line protocol without a live subprocess.
+     * Not used by any production code path.
+     */
+    _installFakeProcessForTest(fakeProcess) {
+        this.#process = fakeProcess;
+        fakeProcess.stdout.on("data", (chunk) => this.#onData(chunk));
+    }
+
+    /**
      * Open a new session, scoped to `cwd` (project-scoped — NOT the operator's
      * ~/.claude) with the given mode and MCP servers. Returns the sessionId;
      * the caller is responsible for closing it via `closeSession`.
@@ -99,6 +127,28 @@ export class ClaudeAgentRunner {
      * @returns {Promise<{ text: string, stopReason: string, usage: object }>}
      */
     async prompt(sessionId, text) {
+        // Chain onto the shared queue so this turn's heavy work (the actual
+        // session/prompt call below, which spawns the underlying agent
+        // subprocess) only starts once any prior queued turn has finished —
+        // see the #queue field comment for why this exists. We deliberately
+        // don't `await` the queued work inline before returning: we build a
+        // fresh promise (`run`) that always settles (so a rejection here
+        // can't poison `#queue` for later callers), chain `#queue` onto that
+        // settling, and hand the caller the original `outcome` promise so
+        // they still see the real result/error from their own turn.
+        let outcome;
+        this.#queue = this.#queue.then(() => {
+            outcome = this.#promptNow(sessionId, text);
+            // Wait for this turn to settle (success or failure) before letting
+            // the next queued caller's work begin — but never let a rejection
+            // here propagate into `#queue` itself.
+            return outcome.catch(() => {});
+        });
+        await this.#queue;
+        return outcome;
+    }
+
+    async #promptNow(sessionId, text) {
         // Track only the last text block — reset whenever Claude switches to tool
         // work so pre-tool narration ("Reading active orders...") is discarded and
         // only the final post-tool reply reaches Telegram.
